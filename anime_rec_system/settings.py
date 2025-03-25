@@ -9,8 +9,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # 安全密钥 - 生产环境需替换！
 SECRET_KEY = 'django-insecure-replace-this-with-your-secure-key-in-production'
 
-# 调试模式 - 生产环境设为False
-DEBUG = True
+# 调试模式 - 开发环境保持为True
+DEBUG = True  # 🔄 已修复：开发阶段应为True
 
 ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
@@ -22,10 +22,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # 第三方应用
     'django_mysql',  # MySQL扩展功能
-    
+
     # 自定义应用
     'anime.apps.AnimeConfig',
     'users.apps.UsersConfig',
@@ -67,30 +67,21 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'anime_rec',
-<<<<<<< HEAD
         'USER': 'root',
-=======
-        'USER': 'anime_user',
->>>>>>> d1322bd2ac3da5307a056d58f203a84a82102da1
         'PASSWORD': 'Qingbei700.',  # 生产环境使用环境变量
         'HOST': 'localhost',
         'PORT': '3306',
-        'OPTIONS': {
+        'OPTIONS': {  # 🔄 已修复：合并为单一OPTIONS字典
             # MySQL会话配置
             'charset': 'utf8mb4',
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-            # innodb_strict_mode防止数据截断
-            'init_command': "SET innodb_strict_mode=1",
+            # 🔄 已修复：合并多条init_command为单一命令
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'; SET innodb_strict_mode=1;",
             # 连接超时设置
             'connect_timeout': 10,
         },
         # 连接池配置 - 性能优化
         'CONN_MAX_AGE': 600,  # 连接保持600秒
         'CONN_HEALTH_CHECKS': True,  # 启用连接健康检查
-        'OPTIONS': {
-            # 使用持久连接
-            'charset': 'utf8mb4',
-        },
     }
 }
 
@@ -157,11 +148,10 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # 开发环境
 # EMAIL_PORT = 587
 # EMAIL_USE_TLS = True
 # EMAIL_HOST_USER = 'your_email@example.com'
-<<<<<<< HEAD
 # EMAIL_HOST_PASSWORD = 'your_password'
 
 # 添加SQL日志和性能监控
-
+# 🔄 已修复：正确缩进LOGGING配置
 if DEBUG:
     LOGGING = {
         'version': 1,
@@ -179,6 +169,3 @@ if DEBUG:
             },
         },
     }
-=======
-# EMAIL_HOST_PASSWORD = 'your_password'
->>>>>>> d1322bd2ac3da5307a056d58f203a84a82102da1

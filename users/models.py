@@ -1,5 +1,5 @@
 from django.db import models
-<<<<<<< HEAD
+
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -111,7 +111,5 @@ class UserPreference(TimeStampedModel):
         """
         # 占位方法，实际实现将在信号或管理命令中完成
         pass
-=======
 
-# Create your models here.
->>>>>>> d1322bd2ac3da5307a056d58f203a84a82102da1
+

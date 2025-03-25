@@ -1,5 +1,4 @@
 from django.db import models
-<<<<<<< HEAD
 from django.utils.text import slugify
 import uuid
 
@@ -105,7 +104,5 @@ class Anime(TimeStampedModel):
         # 这里仅占位，实际计算将在信号或后台任务中完成
         # 避免高频更新导致的性能问题
         pass
-=======
 
-# Create your models here.
->>>>>>> d1322bd2ac3da5307a056d58f203a84a82102da1
+

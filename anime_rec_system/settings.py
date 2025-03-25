@@ -67,7 +67,11 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'anime_rec',
+<<<<<<< HEAD
         'USER': 'root',
+=======
+        'USER': 'anime_user',
+>>>>>>> d1322bd2ac3da5307a056d58f203a84a82102da1
         'PASSWORD': 'Qingbei700.',  # 生产环境使用环境变量
         'HOST': 'localhost',
         'PORT': '3306',
@@ -153,6 +157,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # 开发环境
 # EMAIL_PORT = 587
 # EMAIL_USE_TLS = True
 # EMAIL_HOST_USER = 'your_email@example.com'
+<<<<<<< HEAD
 # EMAIL_HOST_PASSWORD = 'your_password'
 
 # 添加SQL日志和性能监控
@@ -174,3 +179,6 @@ if DEBUG:
             },
         },
     }
+=======
+# EMAIL_HOST_PASSWORD = 'your_password'
+>>>>>>> d1322bd2ac3da5307a056d58f203a84a82102da1

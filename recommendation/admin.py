@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
+<<<<<<< HEAD
 
 # recommendation/admin.py
 from django.contrib import admin
@@ -54,3 +55,5 @@ class RecommendationCacheAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'anime__title')
     list_filter = ('rec_type', 'expires_at')
     readonly_fields = ('score',)
+=======
+>>>>>>> d1322bd2ac3da5307a056d58f203a84a82102da1

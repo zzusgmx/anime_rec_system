@@ -1,4 +1,5 @@
 from django.db import models
+<<<<<<< HEAD
 from django.contrib.auth.models import User
 from anime.models import TimeStampedModel, Anime
 
@@ -183,3 +184,7 @@ class RecommendationCache(TimeStampedModel):
 
     def __str__(self):
         return f"{self.user.username} - {self.anime.title} ({self.rec_type})"
+=======
+
+# Create your models here.
+>>>>>>> d1322bd2ac3da5307a056d58f203a84a82102da1

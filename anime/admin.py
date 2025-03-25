@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
+<<<<<<< HEAD
 
 # anime/admin.py
 from django.contrib import admin
@@ -35,3 +36,5 @@ class AnimeAdmin(admin.ModelAdmin):
             'fields': ('is_featured', 'is_completed')
         }),
     )
+=======
+>>>>>>> d1322bd2ac3da5307a056d58f203a84a82102da1

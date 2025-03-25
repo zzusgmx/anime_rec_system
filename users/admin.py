@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 # Register your models here.
+<<<<<<< HEAD
 
 # users/admin.py
 from django.contrib import admin
@@ -28,3 +29,5 @@ class UserPreferenceAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'anime__title')
     list_filter = ('last_updated',)
     readonly_fields = ('preference_value',)
+=======
+>>>>>>> d1322bd2ac3da5307a056d58f203a84a82102da1

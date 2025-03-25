@@ -1,0 +1,77 @@
+
+<!-- templates/users/activation_email.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>激活您的账号</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background-color: #7952b3;
+            color: #ffffff;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .content {
+            padding: 20px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #7952b3;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            color: #777777;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>动漫推荐系统</h1>
+        </div>
+        <div class="content">
+            <h2>您好, {{ user.username }}</h2>
+            <p>感谢您注册动漫推荐系统！请点击下面的按钮激活您的账号：</p>
+
+            <div style="text-align: center;">
+                <a href="{{ activation_link }}" class="button">激活账号</a>
+            </div>
+
+            <p>或者，您可以复制以下链接到浏览器地址栏：</p>
+            <p>{{ activation_link }}</p>
+
+            <p>该激活链接有效期为24小时。如果您没有注册账号，请忽略此邮件。</p>
+
+            <p>祝您使用愉快！</p>
+            <p>动漫推荐系统团队</p>
+        </div>
+        <div class="footer">
+            <p>© 2023 动漫推荐系统 - 基于Python+Django+MySQL的个性化推荐平台</p>
+            <p>此邮件是系统自动发送，请勿回复。</p>
+        </div>
+    </div>
+</body>
+</html>

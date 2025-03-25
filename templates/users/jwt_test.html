@@ -1,0 +1,227 @@
+<!-- templates/users/jwt_test.html -->
+{% extends 'base.html' %}
+
+{% block title %}JWT认证测试 - 动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .output-area {
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        padding: 15px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .token-display {
+        word-break: break-all;
+        margin-bottom: 10px;
+    }
+
+    .api-response {
+        font-family: monospace;
+        white-space: pre-wrap;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10 col-md-12">
+        <div class="card shadow-lg rounded-3 p-4 mb-4">
+            <h2 class="mb-4 text-center">JWT认证测试工具</h2>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">获取令牌</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="loginForm">
+                                <div class="mb-3">
+                                    <label for="username" class="form-label">用户名</label>
+                                    <input type="text" class="form-control" id="username">
+                                </div>
+                                <div class="mb-3">
+                                    <label for="password" class="form-label">密码</label>
+                                    <input type="password" class="form-control" id="password">
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-key me-2"></i>获取令牌
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">操作</h5>
+                        </div>
+                        <div class="card-body">
+                            <button id="verifyBtn" class="btn btn-success mb-2 me-2">
+                                <i class="fas fa-check-circle me-2"></i>验证令牌
+                            </button>
+                            <button id="refreshBtn" class="btn btn-info mb-2 me-2">
+                                <i class="fas fa-sync-alt me-2"></i>刷新令牌
+                            </button>
+                            <button id="logoutBtn" class="btn btn-danger mb-2">
+                                <i class="fas fa-sign-out-alt me-2"></i>注销
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-dark text-white">
+                            <h5 class="mb-0">响应结果</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="tokenInfo" class="mb-3">
+                                <h6>访问令牌:</h6>
+                                <div id="accessToken" class="token-display text-muted">未获取</div>
+
+                                <h6>刷新令牌:</h6>
+                                <div id="refreshToken" class="token-display text-muted">未获取</div>
+                            </div>
+
+                            <h6>API响应:</h6>
+                            <div id="apiResponse" class="output-area api-response">
+                                等待操作...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 存储令牌
+    let accessToken = '';
+    let refreshToken = '';
+
+    // 添加JWT测试路由
+    document.addEventListener('DOMContentLoaded', function() {
+        // 登录表单提交
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            fetch('/api/token/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.access) {
+                    accessToken = data.access;
+                    refreshToken = data.refresh;
+
+                    document.getElementById('accessToken').textContent = accessToken;
+                    document.getElementById('refreshToken').textContent = refreshToken;
+                    document.getElementById('apiResponse').textContent = JSON.stringify(data, null, 2);
+                } else {
+                    document.getElementById('apiResponse').textContent = JSON.stringify(data, null, 2);
+                }
+            })
+            .catch(error => {
+                document.getElementById('apiResponse').textContent = '发生错误: ' + error.message;
+            });
+        });
+
+        // 验证令牌
+        document.getElementById('verifyBtn').addEventListener('click', function() {
+            if (!accessToken) {
+                document.getElementById('apiResponse').textContent = '错误: 未获取访问令牌';
+                return;
+            }
+
+            fetch('/api/token/verify/', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('apiResponse').textContent = JSON.stringify(data, null, 2);
+            })
+            .catch(error => {
+                document.getElementById('apiResponse').textContent = '发生错误: ' + error.message;
+            });
+        });
+
+        // 刷新令牌
+        document.getElementById('refreshBtn').addEventListener('click', function() {
+            if (!refreshToken) {
+                document.getElementById('apiResponse').textContent = '错误: 未获取刷新令牌';
+                return;
+            }
+
+            fetch('/api/token/refresh/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    refresh: refreshToken
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.access) {
+                    accessToken = data.access;
+                    document.getElementById('accessToken').textContent = accessToken;
+                }
+                document.getElementById('apiResponse').textContent = JSON.stringify(data, null, 2);
+            })
+            .catch(error => {
+                document.getElementById('apiResponse').textContent = '发生错误: ' + error.message;
+            });
+        });
+
+        // 注销
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            if (!refreshToken) {
+                document.getElementById('apiResponse').textContent = '错误: 未获取刷新令牌';
+                return;
+            }
+
+            fetch('/api/logout/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`
+                },
+                body: JSON.stringify({
+                    refresh: refreshToken
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                accessToken = '';
+                refreshToken = '';
+                document.getElementById('accessToken').textContent = '已注销';
+                document.getElementById('refreshToken').textContent = '已注销';
+                document.getElementById('apiResponse').textContent = JSON.stringify(data, null, 2);
+            })
+            .catch(error => {
+                document.getElementById('apiResponse').textContent = '发生错误: ' + error.message;
+            });
+        });
+    });
+</script>
+{% endblock %}

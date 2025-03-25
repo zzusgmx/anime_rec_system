@@ -1,0 +1,140 @@
+
+<!-- templates/users/profile.html -->
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}个人资料 - 动漫推荐系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-4 col-md-5">
+        <!-- 个人资料卡片 -->
+        <div class="card shadow-lg mb-4">
+            <div class="card-body text-center">
+                {% if user.profile.avatar %}
+                    <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}"
+                         class="rounded-circle img-fluid mb-3" style="max-width: 150px;">
+                {% else %}
+                    <i class="fas fa-user-circle fa-6x text-secondary mb-3"></i>
+                {% endif %}
+
+                <h3 class="card-title">{{ user.username }}</h3>
+                <p class="text-muted">{{ user.email }}</p>
+
+                <hr>
+
+                <div class="text-start">
+                    <p>
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        <strong>注册时间:</strong> {{ user.date_joined|date:"Y年m月d日" }}
+                    </p>
+
+                    {% if user.profile.bio %}
+                        <p>
+                            <i class="fas fa-quote-left me-2"></i>
+                            <strong>个人简介:</strong> {{ user.profile.bio }}
+                        </p>
+                    {% endif %}
+
+                    {% if user.profile.birth_date %}
+                        <p>
+                            <i class="fas fa-birthday-cake me-2"></i>
+                            <strong>出生日期:</strong> {{ user.profile.birth_date|date:"Y年m月d日" }}
+                        </p>
+                    {% endif %}
+
+                    {% if user.profile.gender %}
+                        <p>
+                            <i class="fas fa-venus-mars me-2"></i>
+                            <strong>性别:</strong>
+                            {% if user.profile.gender == 'male' %}
+                                男
+                            {% elif user.profile.gender == 'female' %}
+                                女
+                            {% else %}
+                                其他
+                            {% endif %}
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计信息卡片 -->
+        <div class="card shadow-lg">
+            <div class="card-header bg-primary text-white">
+                <h4 class="card-title mb-0"><i class="fas fa-chart-bar me-2"></i>活动统计</h4>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 mb-3">
+                        <h5>{{ user.profile.rating_count }}</h5>
+                        <p class="text-muted">评分</p>
+                    </div>
+                    <div class="col-6 mb-3">
+                        <h5>{{ user.profile.comment_count }}</h5>
+                        <p class="text-muted">评论</p>
+                    </div>
+                    <div class="col-6">
+                        <h5>{{ user.favorites.count }}</h5>
+                        <p class="text-muted">收藏</p>
+                    </div>
+                    <div class="col-6">
+                        <h5>{{ user.likes.count }}</h5>
+                        <p class="text-muted">点赞</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8 col-md-7">
+        <!-- 资料编辑卡片 -->
+        <div class="card shadow-lg mb-4">
+            <div class="card-header bg-primary text-white">
+                <h4 class="card-title mb-0"><i class="fas fa-edit me-2"></i>编辑个人资料</h4>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    {{ profile_form|crispy }}
+
+                    <div class="text-end mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>保存修改
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 安全设置卡片 -->
+        <div class="card shadow-lg">
+            <div class="card-header bg-warning text-dark">
+                <h4 class="card-title mb-0"><i class="fas fa-shield-alt me-2"></i>安全设置</h4>
+            </div>
+            <div class="card-body">
+                <div class="mb-4">
+                    <h5><i class="fas fa-key me-2"></i>密码</h5>
+                    <p class="text-muted">定期更改密码可以提高账号安全性</p>
+                    <a href="{% url 'password_reset' %}" class="btn btn-outline-warning">
+                        <i class="fas fa-sync-alt me-2"></i>修改密码
+                    </a>
+                </div>
+
+                <hr>
+
+                <div>
+                    <h5><i class="fas fa-envelope me-2"></i>电子邮箱</h5>
+                    <p class="text-muted">当前邮箱: {{ user.email }}</p>
+                    <button class="btn btn-outline-warning" disabled>
+                        <i class="fas fa-pencil-alt me-2"></i>修改邮箱
+                    </button>
+                    <small class="d-block text-muted mt-2">(功能开发中)</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

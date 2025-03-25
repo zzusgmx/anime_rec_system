@@ -1,0 +1,52 @@
+<!-- templates/users/login.html -->
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}登录 - 动漫推荐系统{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-5 col-md-7 col-sm-9">
+        <div class="card shadow-lg rounded-3 p-4 mt-5">
+            <div class="text-center mb-4">
+                <i class="fas fa-user-circle fa-3x text-primary"></i>
+                <h2 class="mt-2">用户登录</h2>
+                <p class="text-muted">登录您的账号以获取个性化动漫推荐</p>
+            </div>
+
+            <form method="post">
+                {% csrf_token %}
+
+                {{ form|crispy }}
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" name="remember_me" id="id_remember_me">
+                    <label class="form-check-label" for="id_remember_me">
+                        记住我
+                    </label>
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-sign-in-alt me-2"></i>登录
+                    </button>
+                </div>
+            </form>
+
+            <div class="text-center mt-4">
+                <p>
+                    <a href="{% url 'password_reset' %}" class="text-decoration-none">
+                        <i class="fas fa-key me-1"></i>忘记密码?
+                    </a>
+                </p>
+                <p class="mb-0">
+                    还没有账号?
+                    <a href="{% url 'register' %}" class="text-decoration-none">
+                        立即注册
+                    </a>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

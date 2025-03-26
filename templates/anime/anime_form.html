@@ -1,0 +1,403 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - 动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        margin-bottom: 3rem;
+    }
+
+    .form-header {
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+
+    .form-icon {
+        font-size: 3rem;
+        color: #7952b3;
+        margin-bottom: 1rem;
+    }
+
+    .form-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #333;
+    }
+
+    .form-subtitle {
+        color: #666;
+        font-size: 1.1rem;
+    }
+
+    .form-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .form-section-title {
+        border-bottom: 2px solid #7952b3;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .image-preview {
+        max-width: 100%;
+        height: auto;
+        max-height: 300px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        margin-top: 10px;
+        display: none;
+    }
+
+    .current-image {
+        max-width: 100%;
+        height: auto;
+        max-height: 300px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        margin-top: 10px;
+    }
+
+    .checkbox-container {
+        background-color: white;
+        border: 1px solid #ced4da;
+        border-radius: 5px;
+        padding: 1rem;
+    }
+
+    .form-buttons {
+        text-align: center;
+        margin-top: 2rem;
+    }
+
+    .btn-submit {
+        padding: 0.75rem 2.5rem;
+        font-weight: 600;
+    }
+
+    /* 自定义表单验证样式 */
+    .form-control.is-valid, .form-control.is-invalid {
+        background-position: right calc(0.375em + 0.5rem) center;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="form-container">
+        <div class="form-header">
+            <div class="form-icon">
+                {% if is_create %}
+                    <i class="fas fa-plus-circle"></i>
+                {% else %}
+                    <i class="fas fa-edit"></i>
+                {% endif %}
+            </div>
+            <h1 class="form-title">{{ title }}</h1>
+            <p class="form-subtitle">
+                {% if is_create %}
+                    添加一部新动漫到系统中
+                {% else %}
+                    更新动漫信息
+                {% endif %}
+            </p>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" id="animeForm" {% if is_create %}data-is-create{% endif %}>
+            {% csrf_token %}
+
+            <!-- 基本信息 -->
+            <div class="form-section">
+                <h3 class="form-section-title">基本信息</h3>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">
+                            标题 <span class="text-danger">*</span>
+                            {{ form.title }}
+                        </label>
+                        {% if form.title.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.title.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">
+                            原始标题（可选）
+                            {{ form.original_title }}
+                        </label>
+                        {% if form.original_title.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.original_title.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">
+                            URL标识符（可选）
+                            {{ form.slug }}
+                        </label>
+                        <div class="form-text">留空将根据标题自动生成</div>
+                        {% if form.slug.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.slug.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">
+                            类型 <span class="text-danger">*</span>
+                            {{ form.type }}
+                        </label>
+                        {% if form.type.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.type.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">
+                        描述 <span class="text-danger">*</span>
+                        {{ form.description }}
+                    </label>
+                    {% if form.description.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.description.errors }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- 发布信息 -->
+            <div class="form-section">
+                <h3 class="form-section-title">发布信息</h3>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">
+                            发布日期 <span class="text-danger">*</span>
+                            {{ form.release_date }}
+                        </label>
+                        {% if form.release_date.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.release_date.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">
+                            集数 <span class="text-danger">*</span>
+                            {{ form.episodes }}
+                        </label>
+                        {% if form.episodes.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.episodes.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">
+                            单集时长（分钟）
+                            {{ form.duration }}
+                        </label>
+                        {% if form.duration.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.duration.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 封面图片 -->
+            <div class="form-section">
+                <h3 class="form-section-title">封面图片</h3>
+                <div class="row">
+                    <div class="col-md-6">
+                        <label class="form-label">
+                            {% if is_create %}
+                                上传封面图片 <span class="text-danger">*</span>
+                            {% else %}
+                                更新封面图片
+                            {% endif %}
+                            {{ form.cover }}
+                        </label>
+                        <div class="input-group mb-3">
+                            {% if form.cover.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.cover.errors }}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="form-text">
+                            推荐尺寸: 600x900px, 最大文件大小: 5MB, 支持格式: JPG, PNG, WEBP
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        {% if not is_create and anime.cover %}
+                            <label class="form-label">当前封面图片</label>
+                            <div>
+                                <img src="{{ anime.cover.url }}" class="current-image" alt="当前封面">
+                            </div>
+                        {% endif %}
+                        <img id="coverPreview" class="image-preview" alt="预览">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 状态设置 -->
+            <div class="form-section">
+                <h3 class="form-section-title">状态设置</h3>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="checkbox-container">
+                            <div class="form-check">
+                                <label class="form-check-label">
+                                    {{ form.is_completed }}
+                                    已完结
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">
+                                标记动漫是否已经完结
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 mb-3">
+                        <div class="checkbox-container">
+                            <div class="form-check">
+                                <label class="form-check-label">
+                                    {{ form.is_featured }}
+                                    推荐作品
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">
+                                标记为推荐将在首页突出显示
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 表单按钮 -->
+            <div class="form-buttons">
+                <button type="submit" class="btn btn-primary btn-lg btn-submit">
+                    <i class="fas fa-save me-2"></i>{{ submit_label }}
+                </button>
+                <a href="{% if is_create %}{% url 'anime:anime_list' %}{% else %}{% url 'anime:anime_detail' anime.slug %}{% endif %}" class="btn btn-outline-secondary btn-lg ms-2">
+                    <i class="fas fa-times me-2"></i>取消
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. 图片预览功能
+    $('input[type="file"]').change(function() {
+        const file = this.files[0];
+        if (file) {
+            // 检查文件大小
+            if (file.size > 5 * 1024 * 1024) { // 5MB
+                alert('文件过大，请选择小于5MB的图片');
+                this.value = '';
+                return;
+            }
+
+            // 检查文件类型
+            const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            if (!validTypes.includes(file.type)) {
+                alert('不支持的文件类型，请选择JPG、PNG或WEBP格式');
+                this.value = '';
+                return;
+            }
+
+            // 显示预览
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                $('#coverPreview').attr('src', e.target.result).show();
+                $('.current-image').hide(); // 隐藏当前图片
+            }
+            reader.readAsDataURL(file);
+        } else {
+            $('#coverPreview').hide();
+            $('.current-image').show(); // 恢复显示当前图片
+        }
+    });
+
+    // 2. 表单验证
+    $('#animeForm').submit(function(e) {
+        let isValid = true;
+
+        // 检查必填字段
+        const requiredFields = [
+            { selector: 'input[name="title"]', name: '标题' },
+            { selector: 'textarea[name="description"]', name: '描述' },
+            { selector: 'select[name="type"]', name: '类型' },
+            { selector: 'input[name="release_date"]', name: '发布日期' },
+            { selector: 'input[name="episodes"]', name: '集数' }
+        ];
+
+        // 3. DOM前置数据属性读取技术 - 避免模板插值
+        const formElement = document.getElementById('animeForm');
+        const isCreateMode = formElement.hasAttribute('data-is-create');
+
+        // 新增动漫时，封面图片为必填
+        if (isCreateMode) {
+            requiredFields.push({ selector: 'input[name="cover"]', name: '封面图片' });
+        }
+
+        for (const field of requiredFields) {
+            const $field = $(field.selector);
+            if (!$field.val()) {
+                $field.addClass('is-invalid');
+
+                // 创建错误反馈元素
+                if (!$field.next('.invalid-feedback').length) {
+                    $field.after(`<div class="invalid-feedback">${field.name}不能为空</div>`);
+                }
+
+                // 如果是第一个错误字段，滚动到它的位置
+                if (isValid) {
+                    $('html, body').animate({
+                        scrollTop: $field.offset().top - 100
+                    }, 200);
+                }
+
+                isValid = false;
+            } else {
+                $field.removeClass('is-invalid').addClass('is-valid');
+                $field.next('.invalid-feedback').remove();
+            }
+        }
+
+        return isValid;
+    });
+
+    // 输入时移除错误状态
+    $('input, textarea, select').on('input change', function() {
+        $(this).removeClass('is-invalid');
+        $(this).next('.invalid-feedback').remove();
+    });
+});
+</script>
+{% endblock %}

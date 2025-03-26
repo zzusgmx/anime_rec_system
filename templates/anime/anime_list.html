@@ -1,0 +1,613 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}动漫列表 - 动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* 卡片悬停效果 */
+    .anime-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        height: 100%;
+    }
+
+    .anime-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    /* 卡片图片容器 */
+    .card-img-container {
+        height: 300px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .card-img-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s ease;
+    }
+
+    .anime-card:hover .card-img-container img {
+        transform: scale(1.05);
+    }
+
+    /* 评分样式 */
+    .rating-container {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: #fff;
+        border-radius: 4px;
+        padding: 5px 8px;
+        font-weight: bold;
+        font-size: 0.9rem;
+    }
+
+    .rating-container .star {
+        color: #ffc107;
+        margin-right: 3px;
+    }
+
+    /* 状态标签 */
+    .status-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        padding: 5px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        z-index: 1;
+    }
+
+    .featured-badge {
+        background-color: #dc3545;
+        color: white;
+    }
+
+    .completed-badge {
+        background-color: #28a745;
+        color: white;
+    }
+
+    /* 搜索区域样式 */
+    .search-container {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        padding: 20px;
+        margin-bottom: 30px;
+        position: relative;
+    }
+
+    /* 动漫类型标签 */
+    .type-tag {
+        display: inline-block;
+        padding: 4px 8px;
+        background-color: #7952b3;
+        color: white;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        margin-right: 5px;
+        margin-bottom: 5px;
+        text-decoration: none;
+    }
+
+    .type-tag:hover {
+        background-color: #6741a2;
+        color: white;
+    }
+
+    /* 无结果提示 */
+    .no-results {
+        text-align: center;
+        padding: 50px 0;
+    }
+
+    .no-results i {
+        font-size: 4rem;
+        color: #ccc;
+        margin-bottom: 20px;
+    }
+
+    /* 分页控件样式 */
+    .pagination .page-item.active .page-link {
+        background-color: #7952b3;
+        border-color: #7952b3;
+    }
+
+    .pagination .page-link {
+        color: #7952b3;
+    }
+
+    /* 搜索下拉建议 */
+    .search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background-color: white;
+        border: 1px solid #ddd;
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        max-height: 400px;
+        overflow-y: auto;
+        margin-top: -1px;
+        display: none;
+    }
+
+    .search-result-item {
+        display: flex;
+        align-items: center;
+        padding: 10px 15px;
+        border-bottom: 1px solid #eee;
+        transition: background-color 0.2s;
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .search-result-item:last-child {
+        border-bottom: none;
+    }
+
+    .search-result-item:hover {
+        background-color: #f8f9fa;
+    }
+
+    .search-result-item img {
+        width: 40px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 4px;
+        margin-right: 15px;
+    }
+
+    .search-result-no-image {
+        width: 40px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #f0f0f0;
+        border-radius: 4px;
+        margin-right: 15px;
+        color: #aaa;
+    }
+
+    .search-result-info {
+        flex: 1;
+    }
+
+    .search-result-title {
+        font-weight: 500;
+        margin-bottom: 3px;
+    }
+
+    .search-result-type, .search-result-rating {
+        font-size: 0.85rem;
+        color: #666;
+    }
+
+    .search-no-results {
+        padding: 15px;
+        text-align: center;
+        color: #666;
+    }
+
+    /* 高亮当前匹配文本 */
+    .highlight-match {
+        background-color: #ffffd1;
+        font-weight: bold;
+    }
+
+    /* 搜索输入框样式增强 */
+    .form-control:focus {
+        box-shadow: 0 0 0 0.25rem rgba(121, 82, 179, 0.25);
+        border-color: #b794f4;
+    }
+
+    /* 添加加载指示器样式 */
+    .search-loading {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h1 class="mb-4">动漫列表</h1>
+
+    <!-- 搜索和过滤区域 -->
+    <div class="search-container">
+        <form method="get" action="{% url 'anime:anime_list' %}" id="searchForm">
+            <div class="row">
+                <div class="col-md-4 mb-3 position-relative">
+                    {{ search_form.query }}
+                    <div class="search-results" id="searchResults"></div>
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    {{ search_form.type }}
+                </div>
+
+                <div class="col-md-2 mb-3">
+                    {{ search_form.sort_by }}
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i>搜索
+                    </button>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <div class="input-group">
+                        <span class="input-group-text">最低评分</span>
+                        {{ search_form.min_rating }}
+                    </div>
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    <div class="form-check ms-2">
+                        <label class="form-check-label">
+                            {{ search_form.is_completed }}
+                            只显示已完结
+                        </label>
+                    </div>
+                </div>
+
+                <div class="col-md-3 mb-3">
+                    <div class="form-check ms-2">
+                        <label class="form-check-label">
+                            {{ search_form.is_featured }}
+                            只显示推荐作品
+                        </label>
+                    </div>
+                </div>
+
+                <div class="col-md-3 mb-3 text-end">
+                    <a href="{% url 'anime:anime_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-redo-alt me-2"></i>重置筛选
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- 类型导航 -->
+    <div class="mb-4">
+        <h5 class="mb-3">类型导航：</h5>
+        <div>
+            {% for type in anime_types %}
+                {% if type.slug %}
+                    <a href="{% url 'anime:anime_by_type' type.slug %}" class="type-tag">
+                        {{ type.name }} ({{ type.anime_count }})
+                    </a>
+                {% else %}
+                    <span class="type-tag" title="此类型暂无链接">
+                        {{ type.name }} ({{ type.anime_count }})
+                    </span>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 动漫列表 -->
+    <div class="row">
+        {% if animes %}
+            {% for anime in animes %}
+                <div class="col-md-4 col-sm-6 mb-4">
+                    <div class="card anime-card">
+                        <div class="card-img-container">
+                            {% if anime.is_featured %}
+                                <div class="status-badge featured-badge">推荐</div>
+                            {% endif %}
+
+                            {% if anime.is_completed %}
+                                <div class="status-badge completed-badge" style="left: 70px;">已完结</div>
+                            {% endif %}
+
+                            {% if anime.rating_avg %}
+                                <div class="rating-container">
+                                    <i class="fas fa-star star"></i>{{ anime.rating_avg|floatformat:1 }}
+                                </div>
+                            {% endif %}
+
+                            {% if anime.cover %}
+                                <img src="{{ anime.cover.url }}" alt="{{ anime.title }}" class="card-img-top">
+                            {% else %}
+                                <img src="{% static 'images/default-cover.jpg' %}" alt="无图片" class="card-img-top">
+                            {% endif %}
+                        </div>
+
+                        <div class="card-body">
+                            <h5 class="card-title">{{ anime.title }}</h5>
+                            {% if anime.original_title %}
+                                <h6 class="card-subtitle mb-2 text-muted">{{ anime.original_title }}</h6>
+                            {% endif %}
+
+                            <div class="mb-2">
+                                <a href="{% url 'anime:anime_by_type' anime.type.slug %}" class="badge bg-primary">
+                                    {{ anime.type.name }}
+                                </a>
+                                <span class="badge bg-secondary">{{ anime.episodes }}集</span>
+                                <span class="badge bg-info">{{ anime.release_date|date:"Y年" }}</span>
+                            </div>
+
+                            <p class="card-text text-truncate">{{ anime.description }}</p>
+
+                            <a href="{% url 'anime:anime_detail' anime.slug %}" class="btn btn-outline-primary btn-sm stretched-link">
+                                查看详情
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12 no-results">
+                <i class="fas fa-search"></i>
+                <h3>未找到结果</h3>
+                <p>尝试调整搜索条件或浏览其他类型</p>
+                <a href="{% url 'anime:anime_list' %}" class="btn btn-primary mt-3">查看所有动漫</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- 分页控件 -->
+    {% if is_paginated %}
+    <nav aria-label="分页导航" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}page=1">
+                        <i class="fas fa-angle-double-left"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                        <i class="fas fa-angle-left"></i>
+                    </a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="fas fa-angle-double-left"></i></span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="fas fa-angle-left"></i></span>
+                </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if num == page_obj.number %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}page={{ num }}">{{ num }}</a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}page={{ page_obj.next_page_number }}">
+                        <i class="fas fa-angle-right"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}page={{ page_obj.paginator.num_pages }}">
+                        <i class="fas fa-angle-double-right"></i>
+                    </a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="fas fa-angle-right"></i></span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link"><i class="fas fa-angle-double-right"></i></span>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    <!-- 管理链接 -->
+    {% if user.is_staff or perms.anime.add_anime %}
+    <div class="text-center mt-5">
+        <a href="{% url 'anime:anime_create' %}" class="btn btn-success">
+            <i class="fas fa-plus-circle me-2"></i>添加新动漫
+        </a>
+        <a href="{% url 'anime:anime_type_list' %}" class="btn btn-info ms-2">
+            <i class="fas fa-tags me-2"></i>管理动漫类型
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 实时搜索功能
+    var searchTimeout;
+    var searchResults = $('#searchResults');
+    // 使用属性选择器定位元素
+    var searchInput = $('input[name="query"]');
+
+    searchInput.on('input', function() {
+        const query = $(this).val();
+
+        // 清除之前的超时
+        clearTimeout(searchTimeout);
+
+        // 如果输入为空，隐藏结果
+        if (query.length < 2) {
+            searchResults.hide();
+            return;
+        }
+
+        // 设置超时以减少请求数量
+        searchTimeout = setTimeout(function() {
+            $.ajax({
+                url: '{% url "anime:anime_search" %}',
+                data: {
+                    'query': query
+                },
+                dataType: 'json',
+                beforeSend: function() {
+                    // 显示加载指示器
+                    if (!$('.search-loading').length) {
+                        searchInput.after('<div class="search-loading"><i class="fas fa-spinner fa-spin"></i></div>');
+                    }
+                },
+                success: function(data) {
+                    // 移除加载指示器
+                    $('.search-loading').remove();
+
+                    // 清空并隐藏结果容器
+                    searchResults.empty();
+
+                    if (data.results.length > 0) {
+                        // 添加结果
+                        $.each(data.results, function(index, item) {
+                            // 构建更丰富的结果项
+                            var resultHtml = '<a class="search-result-item" href="' + item.url + '">';
+
+                            // 添加封面图片
+                            if (item.cover) {
+                                resultHtml += '<img src="' + item.cover + '" alt="' + item.title + '">';
+                            } else {
+                                resultHtml += '<div class="search-result-no-image"><i class="fas fa-film"></i></div>';
+                            }
+
+                            // 添加标题和额外信息
+                            resultHtml += '<div class="search-result-info">';
+                            resultHtml += '<div class="search-result-title">' + item.title + '</div>';
+
+                            // 如果有类型信息，显示类型
+                            if (item.type) {
+                                resultHtml += '<div class="search-result-type">' + item.type + '</div>';
+                            }
+
+                            // 如果有评分信息，显示评分
+                            if (item.rating) {
+                                resultHtml += '<div class="search-result-rating"><i class="fas fa-star text-warning"></i> ' + item.rating + '</div>';
+                            }
+
+                            resultHtml += '</div></a>';
+
+                            var resultItem = $(resultHtml);
+                            searchResults.append(resultItem);
+                        });
+
+                        // 显示结果
+                        searchResults.show();
+                    } else {
+                        // 显示无结果提示
+                        searchResults.append('<div class="search-no-results">没有找到结果</div>');
+                        searchResults.show();
+                    }
+                },
+                error: function() {
+                    // 移除加载指示器并显示错误
+                    $('.search-loading').remove();
+                    searchResults.empty().append('<div class="search-no-results">搜索出错，请稍后再试</div>').show();
+                }
+            });
+        }, 300);  // 300ms延迟
+    });
+
+    // 点击外部时隐藏搜索结果
+    $(document).on('click', function(event) {
+        if (!searchInput.is(event.target) && !searchResults.is(event.target) && searchResults.has(event.target).length === 0) {
+            searchResults.hide();
+        }
+    });
+
+    // 搜索框获取焦点时，如果有查询文本且长度>=2，显示结果
+    searchInput.on('focus', function() {
+        const query = $(this).val();
+        if (query.length >= 2) {
+            $.ajax({
+                url: '{% url "anime:anime_search" %}',
+                data: {
+                    'query': query
+                },
+                dataType: 'json',
+                success: function(data) {
+                    searchResults.empty();
+
+                    if (data.results.length > 0) {
+                        $.each(data.results, function(index, item) {
+                            // 使用与上面相同的结果项构建逻辑
+                            var resultHtml = '<a class="search-result-item" href="' + item.url + '">';
+
+                            if (item.cover) {
+                                resultHtml += '<img src="' + item.cover + '" alt="' + item.title + '">';
+                            } else {
+                                resultHtml += '<div class="search-result-no-image"><i class="fas fa-film"></i></div>';
+                            }
+
+                            resultHtml += '<div class="search-result-info">';
+                            resultHtml += '<div class="search-result-title">' + item.title + '</div>';
+
+                            if (item.type) {
+                                resultHtml += '<div class="search-result-type">' + item.type + '</div>';
+                            }
+
+                            if (item.rating) {
+                                resultHtml += '<div class="search-result-rating"><i class="fas fa-star text-warning"></i> ' + item.rating + '</div>';
+                            }
+
+                            resultHtml += '</div></a>';
+
+                            searchResults.append($(resultHtml));
+                        });
+
+                        searchResults.show();
+                    }
+                }
+            });
+        }
+    });
+
+    // 自动提交筛选表单功能
+    $('#searchForm select, #searchForm input[type="checkbox"]').change(function() {
+        $('#searchForm').submit();
+    });
+
+    // 卡片等高处理
+    function adjustCardHeights() {
+        const cards = document.querySelectorAll('.anime-card');
+        let maxHeight = 0;
+
+        // 先重置高度
+        cards.forEach(card => {
+            card.style.height = 'auto';
+            const height = card.offsetHeight;
+            maxHeight = Math.max(maxHeight, height);
+        });
+
+        // 设置所有卡片为相同高度
+        cards.forEach(card => {
+            card.style.height = `${maxHeight}px`;
+        });
+    }
+
+    // 初始调整和窗口大小改变时调整
+    window.addEventListener('load', adjustCardHeights);
+    window.addEventListener('resize', adjustCardHeights);
+});
+</script>
+{% endblock %}

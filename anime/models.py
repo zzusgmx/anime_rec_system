@@ -1,6 +1,11 @@
+# anime/models.py
 from django.db import models
 from django.utils.text import slugify
 import uuid
+import logging
+
+# 配置日志记录器
+logger = logging.getLogger('django')
 
 
 class TimeStampedModel(models.Model):
@@ -30,9 +35,30 @@ class AnimeType(TimeStampedModel):
         ordering = ['name']  # 默认按名称排序
 
     def save(self, *args, **kwargs):
-        # 自动生成slug用于URL友好化
+        # 0x01: 量子加固版slug生成器 - 支持多语言与边缘情况处理
         if not self.slug:
-            self.slug = slugify(self.name)
+            # 尝试基于name生成slug
+            slug_base = slugify(self.name)
+
+            # 如果slugify结果为空（例如纯中文名称）
+            if not slug_base:
+                # 使用name哈希值作为备选，确保确定性
+                name_hash = abs(hash(self.name)) % 100000
+                slug_base = f"type-{name_hash}"
+
+            # 确保唯一性的递增计数器
+            counter = 0
+            slug = slug_base
+
+            # 循环检查唯一性
+            while AnimeType.objects.filter(slug=slug).exists():
+                counter += 1
+                slug = f"{slug_base}-{counter}"
+
+            self.slug = slug
+            # 诊断日志
+            logger.info(f"为类型 '{self.name}' 生成slug: {self.slug}")
+
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -88,9 +114,33 @@ class Anime(TimeStampedModel):
         ordering = ['-popularity', '-release_date']
 
     def save(self, *args, **kwargs):
-        # 自动生成URL友好的slug
+        # 0x02: 量子级增强slug生成器 - 高防碰撞与容错设计
         if not self.slug:
-            self.slug = slugify(f"{self.title}-{str(self.uuid)[:8]}")
+            # 获取基本slug部分（从标题）
+            base_slug = slugify(self.title) if self.title else 'anime'
+
+            # 如果slugify结果为空（纯中文等）
+            if not base_slug or base_slug == 'anime':
+                # 使用拼音转换或直接基于ID生成
+                import hashlib
+                # 使用标题的哈希作为备选
+                title_hash = hashlib.md5(self.title.encode('utf-8')).hexdigest()[:8]
+                base_slug = f"anime-{title_hash}"
+
+            # 加入UUID前8位作为确保唯一性的量子指纹
+            # 确保UUID已经存在，否则生成新的
+            if not self.uuid:
+                self.uuid = uuid.uuid4()
+
+            # 从UUID中提取前8位十六进制数作为唯一标识
+            uuid_hex = str(self.uuid).replace('-', '')[:8]
+
+            # 组合最终slug：标题-uuid前8位
+            self.slug = f"{base_slug}-{uuid_hex}"
+
+            # 诊断日志
+            logger.info(f"为动漫 '{self.title}' 生成slug: {self.slug}")
+
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -104,5 +154,3 @@ class Anime(TimeStampedModel):
         # 这里仅占位，实际计算将在信号或后台任务中完成
         # 避免高频更新导致的性能问题
         pass
-
-

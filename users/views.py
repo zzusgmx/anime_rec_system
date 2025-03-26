@@ -1,6 +1,3 @@
-from django.shortcuts import render
-
-# Create your views here.
 # users/views.py
 
 from django.shortcuts import render, redirect
@@ -8,7 +5,7 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.views import (
-    LoginView, LogoutView, PasswordResetView,
+    LoginView, PasswordResetView,
     PasswordResetDoneView, PasswordResetConfirmView, PasswordResetCompleteView
 )
 from django.urls import reverse_lazy
@@ -57,47 +54,69 @@ class CustomLoginView(LoginView):
         return super().form_valid(form)
 
 
-class CustomLogoutView(LogoutView):
+def custom_logout_view(request):
     """
-    自定义注销视图
-    清除会话和JWT令牌
+    处理GET和POST请求的登出视图
     """
-    next_page = 'login'
+    # 清除JWT令牌
+    if 'jwt_refresh' in request.session:
+        del request.session['jwt_refresh']
+    if 'jwt_access' in request.session:
+        del request.session['jwt_access']
 
-    def dispatch(self, request, *args, **kwargs):
-        # 清除JWT令牌
-        if 'jwt_refresh' in request.session:
-            del request.session['jwt_refresh']
-        if 'jwt_access' in request.session:
-            del request.session['jwt_access']
+    # 登出用户
+    logout(request)
 
-        messages.info(request, '您已成功退出登录')
-        return super().dispatch(request, *args, **kwargs)
+    messages.info(request, '您已成功退出登录')
+    return redirect('login')
 
 
 class CustomRegisterView(CreateView):
     """
-    自定义注册视图
-    注册成功后发送验证邮件
+    智能环境感知的注册视图
+    在开发环境自动激活，生产环境邮件验证
     """
     form_class = UserRegisterForm
     template_name = 'users/register.html'
     success_url = reverse_lazy('login')
 
     def form_valid(self, form):
-        """表单验证成功时处理"""
-        # 保存用户，但不激活
+        """表单验证成功时处理：环境感知的用户激活策略"""
+        import sys
+
+        # 保存用户基础数据
         user = form.save(commit=False)
-        user.is_active = False  # 需要邮箱验证后才激活
-        user.save()
 
-        # 发送激活邮件
-        self.send_activation_email(user)
+        # 环境感知激活策略
+        if 'runserver' in sys.argv:  # 开发服务器检测
+            # DEV环境：自动激活用户 - 无邮件依赖模式
+            user.is_active = True  # 🔓 绕过激活锁
+            user.save()
 
-        messages.success(self.request,
-                         '注册成功！请查收邮件并点击激活链接完成账号激活。'
-                         )
-        return redirect('login')
+            # 生成JWT授权令牌
+            refresh = RefreshToken.for_user(user)
+            self.request.session['jwt_refresh'] = str(refresh)
+            self.request.session['jwt_access'] = str(refresh.access_token)
+
+            # 自动登录用户
+            login(self.request, user)
+
+            messages.success(
+                self.request,
+                f'DEV模式：账号 {user.username} 已自动激活并登录！'
+            )
+            return redirect('profile')  # 直接跳转到个人资料页
+        else:
+            # PROD环境：标准安全流程 - 邮件验证激活
+            user.is_active = False
+            user.save()
+            # 发送激活邮件
+            self.send_activation_email(user)
+            messages.success(
+                self.request,
+                '注册成功！请查收邮件并点击激活链接完成账号激活。'
+            )
+            return redirect('login')
 
     def send_activation_email(self, user):
         """发送账户激活邮件"""

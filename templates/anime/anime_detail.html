@@ -1,0 +1,185 @@
+{% block extra_js %}
+<script>
+// 使用Django模板变量初始化JavaScript变量，添加严格类型转换和默认值处理
+// 将Django模板变量先转换为字符串，再进行类型转换，避免解析冲突
+const userRatingStr = "{{ user_data.rating|default:'0' }}";
+const isLoggedInStr = "{{ user.is_authenticated|yesno:'true,false' }}";
+const isFavoritedStr = "{{ user_data.has_favorited|yesno:'true,false' }}";
+const animeIdStr = "{{ anime.id|default:'0' }}";
+
+// 将字符串转换为适当的JavaScript类型
+let currentRating = parseFloat(userRatingStr) || 0;
+const isLoggedIn = isLoggedInStr === "true";
+const isFavorited = isFavoritedStr === "true";
+const animeId = parseInt(animeIdStr) || 0;
+
+// DOM 加载完成后执行
+document.addEventListener('DOMContentLoaded', function() {
+    // 设置背景图片
+    const animeHeader = document.getElementById('animeHeader');
+    if (animeHeader) {
+        const coverUrl = animeHeader.getAttribute('data-cover-url');
+        if (coverUrl) {
+            animeHeader.style.backgroundImage = `url(${coverUrl})`;
+        } else {
+            animeHeader.style.backgroundColor = '#343a40'; // 添加默认背景色
+        }
+    }
+
+    // 设置初始评分状态
+    if (currentRating > 0) {
+        updateStars(currentRating);
+        $('#ratingValue').text(currentRating);
+    }
+
+    // 设置初始收藏状态
+    if (isFavorited) {
+        $('#favoriteButton').addClass('active').html('<i class="fas fa-heart me-2"></i>已收藏');
+    }
+
+    // 评分星星点击事件
+    $('.rating-star').click(function() {
+        if (!isLoggedIn) {
+            showLoginAlert();
+            return;
+        }
+
+        const rating = parseInt($(this).data('rating'));
+        currentRating = rating;
+        $('#ratingValue').text(rating);
+        updateStars(rating);
+    });
+
+    // 提交评分
+    $('#submitRating').click(function() {
+        if (!isLoggedIn) {
+            showLoginAlert();
+            return;
+        }
+
+        if (currentRating === 0) {
+            alert('请选择评分');
+            return;
+        }
+
+        // 发送AJAX请求
+        $.ajax({
+            url: `/anime/rate/${animeId}/`,
+            type: 'POST',
+            data: {
+                'rating': currentRating,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                $('#ratingModal').modal('hide');
+                showToast('评分成功', `您给《{{ anime.title }}》的评分是 ${currentRating} 星！`);
+                // 可以选择刷新页面以显示更新的评分
+                setTimeout(() => location.reload(), 1500);
+            },
+            error: function(xhr) {
+                alert('评分失败: ' + (xhr.responseJSON ? xhr.responseJSON.message : '请稍后再试'));
+            }
+        });
+    });
+
+    // 收藏按钮点击事件
+    $('#favoriteButton').click(function() {
+        if (!isLoggedIn) {
+            showLoginAlert();
+            return;
+        }
+
+        // 发送AJAX请求
+        $.ajax({
+            url: `/anime/favorite/${animeId}/`,
+            type: 'POST',
+            data: {
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                const $btn = $('#favoriteButton');
+                if (response.action === 'added') {
+                    $btn.addClass('active').html('<i class="fas fa-heart me-2"></i>已收藏');
+                    showToast('收藏成功', response.message);
+                } else {
+                    $btn.removeClass('active').html('<i class="far fa-heart me-2"></i>收藏');
+                    showToast('取消收藏', response.message);
+                }
+            },
+            error: function() {
+                alert('操作失败，请稍后再试');
+            }
+        });
+    });
+
+    // 评论按钮点击事件
+    $('#commentButton, #firstCommentButton').click(function() {
+        if (!isLoggedIn) {
+            showLoginAlert();
+            return;
+        }
+
+        $('#commentModal').modal('show');
+    });
+
+    // 评论提交
+    $('#submitComment').click(function() {
+        if (!isLoggedIn) {
+            showLoginAlert();
+            return;
+        }
+
+        const content = $('#commentContent').val();
+        if (!content.trim()) {
+            alert('评论内容不能为空');
+            return;
+        }
+
+        // 此功能将在后续实现
+        alert('评论功能将在后续开发中实现，感谢您的参与！');
+        $('#commentModal').modal('hide');
+    });
+});
+
+// 更新星星显示
+function updateStars(rating) {
+    $('.rating-star').each(function() {
+        const starRating = parseInt($(this).data('rating'));
+        if (starRating <= rating) {
+            $(this).removeClass('far').addClass('fas');
+        } else {
+            $(this).removeClass('fas').addClass('far');
+        }
+    });
+}
+
+// 显示需要登录提示
+function showLoginAlert() {
+    alert('请先登录后再进行此操作');
+    window.location.href = '/login/?next={{ request.path }}';
+}
+
+// 显示操作结果提示
+function showToast(title, message) {
+    // 创建并显示自定义 Toast
+    const toastHtml = `
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
+        <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto">${title}</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">${message}</div>
+        </div>
+    </div>`;
+
+    // 添加到页面
+    const $toast = $(toastHtml).appendTo('body');
+
+    // 3秒后自动移除
+    setTimeout(function() {
+        $toast.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

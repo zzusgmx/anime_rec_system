@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}动漫未找到 - 动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .not-found-container {
+        text-align: center;
+        padding: 4rem 0;
+    }
+
+    .not-found-icon {
+        font-size: 6rem;
+        color: #7952b3;
+        margin-bottom: 2rem;
+        opacity: 0.7;
+    }
+
+    .not-found-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        color: #343a40;
+    }
+
+    .not-found-message {
+        font-size: 1.2rem;
+        color: #6c757d;
+        max-width: 600px;
+        margin: 0 auto 2rem;
+    }
+
+    .suggestions {
+        margin: 2rem 0;
+        padding: 2rem;
+        background-color: #f8f9fa;
+        border-radius: 10px;
+    }
+
+    .suggestions-title {
+        margin-bottom: 1.5rem;
+        color: #343a40;
+    }
+
+    .suggestion-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .suggestion-cards {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @media (max-width: 576px) {
+        .suggestion-cards {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .error-details {
+        margin-top: 2rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        text-align: left;
+        font-family: monospace;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    /* 404宇宙风暴动画 */
+    .space-dust {
+        position: absolute;
+        width: 2px;
+        height: 2px;
+        background: #7952b3;
+        border-radius: 50%;
+        animation: space-storm 3s linear infinite;
+    }
+
+    @keyframes space-storm {
+        0% {
+            transform: translateY(0) translateX(0);
+            opacity: 0;
+        }
+        50% {
+            opacity: 1;
+        }
+        100% {
+            transform: translateY(100px) translateX(100px);
+            opacity: 0;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="not-found-container">
+        <!-- 宇宙风暴粒子效果 -->
+        <div id="space-container"></div>
+
+        <div class="not-found-icon">
+            <i class="fas fa-satellite-dish"></i>
+        </div>
+
+        <h1 class="not-found-title">404 - 量子寻址失效</h1>
+        <p class="not-found-message">{{ message|default:"您请求的动漫已消失在平行宇宙中，或者暂时被存储在了非可观测的数据维度。" }}</p>
+
+        <div class="d-flex justify-content-center gap-3">
+            <a href="{% url 'anime:anime_list' %}" class="btn btn-primary">
+                <i class="fas fa-list me-2"></i>浏览所有动漫
+            </a>
+            <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>返回上一页
+            </a>
+        </div>
+
+        <!-- 如果有推荐动漫，显示它们 -->
+        {% if featured_animes %}
+        <div class="suggestions">
+            <h3 class="suggestions-title">您可能会喜欢这些动漫</h3>
+            <div class="suggestion-cards">
+                {% for anime in featured_animes %}
+                <div class="card">
+                    {% if anime.cover %}
+                        <img src="{{ anime.cover.url }}" class="card-img-top" alt="{{ anime.title }}">
+                    {% else %}
+                        <img src="{% static 'images/no-image.jpg' %}" class="card-img-top" alt="No image">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ anime.title }}</h5>
+                        <a href="{% url 'anime:anime_detail' anime.slug %}" class="btn btn-sm btn-outline-primary">查看详情</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 调试模式显示错误详情 -->
+        {% if debug and error %}
+        <div class="error-details">
+            <h5>错误详情 (仅调试环境可见)</h5>
+            <pre>{{ error }}</pre>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 创建宇宙风暴粒子效果
+    const container = document.getElementById('space-container');
+    const particleCount = 50;
+
+    for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement('div');
+        particle.classList.add('space-dust');
+
+        // 随机位置
+        particle.style.top = `${Math.random() * 100}%`;
+        particle.style.left = `${Math.random() * 100}%`;
+
+        // 随机大小
+        const size = Math.random() * 3 + 1;
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+
+        // 随机动画延迟
+        particle.style.animationDelay = `${Math.random() * 3}s`;
+
+        // 随机透明度
+        particle.style.opacity = Math.random() * 0.5;
+
+        container.appendChild(particle);
+    }
+});
+</script>
+{% endblock %}

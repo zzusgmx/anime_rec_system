@@ -1,0 +1,80 @@
+/* static/anime/css/anime_detail.css */
+
+/* 动漫封面样式 */
+.anime-cover {
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    border-radius: 8px;
+    transition: transform 0.3s ease;
+}
+
+.anime-cover:hover {
+    transform: scale(1.02);
+}
+
+/* 评分星星动画 */
+.rating-stars-input i {
+    cursor: pointer;
+    transition: color 0.2s, transform 0.2s;
+}
+
+.rating-stars-input i:hover {
+    transform: scale(1.2);
+}
+
+.rating-stars-input i.fas {
+    color: #ffc107;
+}
+
+/* 收藏按钮动画 */
+#favoriteBtn {
+    transition: background-color 0.3s, color 0.3s, transform 0.2s;
+}
+
+#favoriteBtn:hover {
+    transform: scale(1.05);
+}
+
+#favoriteBtn.active {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* 相关动漫卡片效果 */
+.related-anime-card {
+    overflow: hidden;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+.related-anime-card img {
+    transition: transform 0.5s ease;
+}
+
+.related-anime-card:hover img {
+    transform: scale(1.1);
+}
+
+/* 渐变背景动画 */
+@keyframes gradientBg {
+    0% {background-position: 0% 50%;}
+    50% {background-position: 100% 50%;}
+    100% {background-position: 0% 50%;}
+}
+
+.anime-header {
+    background: linear-gradient(135deg, #f5f7fa 0%, #e9edf3 100%);
+    background-size: 200% 200%;
+    animation: gradientBg 15s ease infinite;
+}
+
+/* 热门度进度条动画 */
+.progress-bar {
+    transition: width 1.5s ease-in-out;
+}
+
+/* 自适应内容布局 */
+@media (max-width: 768px) {
+    .anime-info {
+        padding-left: 0;
+        margin-top: 20px;
+    }
+}

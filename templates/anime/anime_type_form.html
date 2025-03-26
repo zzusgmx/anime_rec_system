@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} - 动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .type-form-container {
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        margin: 3rem auto;
+        max-width: 700px;
+    }
+
+    .form-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .form-icon {
+        font-size: 3rem;
+        color: #7952b3;
+        margin-bottom: 1rem;
+    }
+
+    .form-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #333;
+    }
+
+    .form-subtitle {
+        color: #666;
+        font-size: 1.1rem;
+    }
+
+    .form-section {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .form-buttons {
+        text-align: center;
+        margin-top: 2rem;
+    }
+
+    .btn-submit {
+        padding: 0.75rem 2.5rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="type-form-container">
+        <div class="form-header">
+            <div class="form-icon">
+                <i class="fas fa-tags"></i>
+            </div>
+            <h1 class="form-title">{{ title }}</h1>
+            <p class="form-subtitle">
+                {% if anime_type %}
+                    更新动漫类型信息
+                {% else %}
+                    添加新的动漫类型
+                {% endif %}
+            </p>
+        </div>
+
+        <form method="post" id="typeForm">
+            {% csrf_token %}
+
+            <div class="form-section">
+                <div class="mb-3">
+                    <label class="form-label">
+                        类型名称 <span class="text-danger">*</span>
+                        {{ form.name }}
+                    </label>
+                    {% if form.name.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.name.errors }}
+                        </div>
+                    {% endif %}
+                    <div class="form-text">例如：少年、热血、科幻</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">
+                        URL标识符
+                        {{ form.slug }}
+                    </label>
+                    {% if form.slug.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.slug.errors }}
+                        </div>
+                    {% endif %}
+                    <div class="form-text">用于URL友好化，留空将自动生成</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">
+                        类型描述
+                        {{ form.description }}
+                    </label>
+                    {% if form.description.errors %}
+                        <div class="invalid-feedback d-block">
+                            {{ form.description.errors }}
+                        </div>
+                    {% endif %}
+                    <div class="form-text">简要描述该类型的特点和代表作品</div>
+                </div>
+            </div>
+
+            <div class="form-buttons">
+                <button type="submit" class="btn btn-primary btn-lg btn-submit">
+                    <i class="fas fa-save me-2"></i>{{ submit_label }}
+                </button>
+                <a href="{% url 'anime:anime_type_list' %}" class="btn btn-outline-secondary btn-lg ms-2">
+                    <i class="fas fa-times me-2"></i>取消
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 表单验证 - 使用属性选择器替代ID选择器
+    $('#typeForm').submit(function(e) {
+        const nameField = $('input[name="name"]');
+        if (!nameField.val().trim()) {
+            e.preventDefault();
+
+            // 添加错误提示
+            if (!nameField.next('.invalid-feedback').length) {
+                nameField.addClass('is-invalid').after('<div class="invalid-feedback d-block">类型名称不能为空</div>');
+            }
+
+            // 滚动到错误字段位置
+            $('html, body').animate({
+                scrollTop: nameField.offset().top - 100
+            }, 200);
+        }
+    });
+
+    // 输入时移除错误状态
+    $('input[name="name"]').on('input', function() {
+        $(this).removeClass('is-invalid');
+        $(this).next('.invalid-feedback').remove();
+    });
+
+    // 自动生成slug
+    $('input[name="name"]').on('input', function() {
+        // 判断用户是否手动编辑过slug
+        const slugField = $('input[name="slug"]');
+        if (!slugField.data('user-edited') && !slugField.val()) {
+            // 简单的slug转换，只用于前端预览
+            const slug = $(this).val()
+                .toLowerCase()
+                .replace(/[^\w\s-]/g, '')  // 移除特殊字符
+                .replace(/\s+/g, '-')      // 将空格替换为连字符
+                .replace(/--+/g, '-');     // 删除多余的连字符
+
+            slugField.val(slug);
+        }
+    });
+
+    // 标记用户是否编辑过slug
+    $('input[name="slug"]').on('input', function() {
+        $(this).data('user-edited', true);
+    });
+});
+</script>
+{% endblock %}

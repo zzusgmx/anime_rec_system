@@ -7,10 +7,10 @@ from django.views.generic import TemplateView
 urlpatterns = [
     # 基于表单的认证视图 - 用于Web界面
     path('login/', views.CustomLoginView.as_view(), name='login'),
-    path('logout/', views.CustomLogoutView.as_view(), name='logout'),
+    path('logout/', views.custom_logout_view, name='logout'),  # 修改为使用函数视图
     path('register/', views.CustomRegisterView.as_view(), name='register'),
     path('profile/', views.profile_view, name='profile'),
-    # 添加到users/urls.py的urlpatterns列表中
+    # JWT测试页面
     path('jwt-test/', TemplateView.as_view(template_name='users/jwt_test.html'), name='jwt_test'),
     # 账户激活
     path('activate/<uidb64>/<token>/', views.activate_account, name='activate'),

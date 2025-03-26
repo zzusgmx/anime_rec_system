@@ -23,11 +23,14 @@ urlpatterns = [
     # 用户认证路由
     path('', include('users.urls')),
 
-    # API路由
-    #path('api/', include('anime.urls')),
+    # 动漫应用路由
+    path('anime/', include('anime.urls', namespace='anime')),
 
-    # 主页重定向
-    path('', RedirectView.as_view(url='/login/', permanent=False)),
+    # 推荐应用路由
+    # path('recommendations/', include('recommendation.urls', namespace='recommendation')),
+
+    # 主页重定向 - 临时改为动漫列表页
+    path('', RedirectView.as_view(url='/anime/', permanent=False)),
 ]
 
 # 开发环境中提供媒体文件访问

@@ -62,6 +62,72 @@
             padding: 1.5rem 0;
             margin-top: auto;
         }
+
+        /* 消息提示样式 */
+        .messages-container {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            z-index: 1050;
+            max-width: 350px;
+        }
+
+        .messages-container .alert {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid;
+        }
+
+        .messages-container .alert-success {
+            border-left-color: #28a745;
+        }
+
+        .messages-container .alert-danger {
+            border-left-color: #dc3545;
+        }
+
+        .messages-container .alert-warning {
+            border-left-color: #ffc107;
+        }
+
+        .messages-container .alert-info {
+            border-left-color: #17a2b8;
+        }
+
+        /* 下拉菜单样式 */
+        .dropdown-menu {
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border: none;
+        }
+
+        .dropdown-item:hover {
+            background-color: #f8f9fa;
+        }
+
+        .dropdown-item i {
+            width: 20px;
+            text-align: center;
+        }
+
+        /* 按钮样式 */
+        .btn-primary {
+            background-color: #7952b3;
+            border-color: #7952b3;
+        }
+
+        .btn-primary:hover {
+            background-color: #673ab7;
+            border-color: #673ab7;
+        }
+
+        .btn-outline-primary {
+            color: #7952b3;
+            border-color: #7952b3;
+        }
+
+        .btn-outline-primary:hover {
+            background-color: #7952b3;
+            border-color: #7952b3;
+        }
     </style>
 </head>
 <body>
@@ -75,18 +141,27 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'anime:anime_list' %}">
+                            <i class="fas fa-list me-1"></i>动漫列表
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'anime:anime_type_list' %}">
+                            <i class="fas fa-tags me-1"></i>类型分类
+                        </a>
+                    </li>
+                    {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">
+                            <i class="fas fa-heart me-1"></i>我的收藏
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
                 <ul class="navbar-nav ms-auto">
                     {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="/">
-                                <i class="fas fa-home me-1"></i>首页
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="#">
-                                <i class="fas fa-heart me-1"></i>我的收藏
-                            </a>
-                        </li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
                                 <i class="fas fa-user-circle me-1"></i>{{ user.username }}
@@ -106,6 +181,7 @@
                                 {% endif %}
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
+                                    <!-- 修改后的退出登录链接，使用GET请求 -->
                                     <a class="dropdown-item" href="{% url 'logout' %}">
                                         <i class="fas fa-sign-out-alt me-2"></i>退出登录
                                     </a>
@@ -131,14 +207,26 @@
 
     <!-- 消息提示 -->
     {% if messages %}
-        <div class="messages-container">
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            {% endfor %}
-        </div>
+    <div class="messages-container">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    </div>
+    <script>
+        // 自动关闭消息提示
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(function() {
+                var alerts = document.querySelectorAll('.alert');
+                alerts.forEach(function(alert) {
+                    var bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                });
+            }, 5000); // 5秒后自动关闭
+        });
+    </script>
     {% endif %}
 
     <!-- 主要内容 -->
@@ -151,7 +239,14 @@
     <!-- 页脚 -->
     <footer class="footer text-center">
         <div class="container">
-            <span>© 2023 动漫推荐系统 - 基于Python+Django+MySQL的个性化推荐平台</span>
+            <p class="mb-0">&copy; {% now "Y" %} 动漫推荐系统 - 基于Python+Django+MySQL的个性化推荐平台</p>
+            <div class="mt-2">
+                <small class="text-muted">
+                    <i class="fas fa-code me-1"></i> 使用 Django {{ django_version }} 构建
+                    <span class="mx-2">|</span>
+                    <i class="fas fa-heart me-1"></i> 热爱动漫
+                </small>
+            </div>
         </div>
     </footer>
 
@@ -161,5 +256,25 @@
 
     <!-- 额外的JavaScript -->
     {% block extra_js %}{% endblock %}
+
+    <script>
+        // 通用JavaScript功能
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置当前活动导航链接
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === currentPath || currentPath.startsWith(href) && href !== '/') {
+                    link.classList.add('active');
+                }
+            });
+
+            // 初始化所有tooltips
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+    </script>
 </body>
 </html>

@@ -1,0 +1,288 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}动漫类型管理 - 动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .types-container {
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        margin-bottom: 3rem;
+    }
+
+    .types-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .type-card {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .type-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .type-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .type-name {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+    }
+
+    .type-meta {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 1rem;
+    }
+
+    .type-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .type-stat {
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .type-stat i {
+        margin-right: 0.5rem;
+        color: #7952b3;
+    }
+
+    .rating-stars {
+        color: #ffc107;
+    }
+
+    .type-description {
+        color: #333;
+        margin-bottom: 1rem;
+    }
+
+    .type-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .type-actions .btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
+    }
+
+    .empty-message {
+        text-align: center;
+        padding: 3rem;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .empty-icon {
+        font-size: 4rem;
+        color: #ccc;
+        margin-bottom: 1rem;
+    }
+
+    /* 空slug警告样式 */
+    .slug-warning {
+        display: inline-block;
+        background-color: #ffc107;
+        color: #343a40;
+        font-size: 0.8rem;
+        padding: 2px 5px;
+        border-radius: 3px;
+        margin-left: 8px;
+        vertical-align: middle;
+    }
+
+    .btn-disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="types-container">
+        <div class="types-header">
+            <h1>动漫类型管理</h1>
+
+            {% if perms.anime.add_animetype %}
+            <a href="{% url 'anime:anime_type_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus-circle me-2"></i>添加新类型
+            </a>
+            {% endif %}
+        </div>
+
+        {% if types %}
+            <div class="row">
+                {% for type in types %}
+                    <div class="col-md-6">
+                        <div class="type-card">
+                            <div class="type-header">
+                                <h2 class="type-name">
+                                    {{ type.name }}
+                                    {% if not type.slug %}
+                                        <span class="slug-warning" title="缺少URL标识符，编辑后自动修复">
+                                            <i class="fas fa-exclamation-triangle"></i> 需修复
+                                        </span>
+                                    {% endif %}
+                                </h2>
+                                {% if perms.anime.change_animetype or perms.anime.delete_animetype %}
+                                <div>
+                                    {% if perms.anime.change_animetype %}
+                                        {% if type.slug %}
+                                            <a href="{% url 'anime:anime_type_edit' type.slug %}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        {% else %}
+                                            <!-- 动态修复触发按钮 - 修复后的代码 -->
+                                            <a href="#" onclick="fixEmptySlug('{{ type.id }}'); return false;"
+                                               class="btn btn-sm btn-outline-warning" title="点击修复URL标识符">
+                                                <i class="fas fa-wrench"></i>
+                                            </a>
+                                        {% endif %}
+                                    {% endif %}
+
+                                    {% if perms.anime.delete_animetype %}
+                                        {% if type.slug %}
+                                            <a href="{% url 'anime:anime_type_delete' type.slug %}"
+                                               class="btn btn-sm btn-outline-danger {% if type.anime_count > 0 %}disabled{% endif %}">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </a>
+                                        {% else %}
+                                            <button class="btn btn-sm btn-outline-danger btn-disabled" disabled>
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="type-stats">
+                                <div class="type-stat">
+                                    <i class="fas fa-tv"></i> {{ type.anime_count }} 部动漫
+                                </div>
+
+                                {% if type.avg_rating %}
+                                <div class="type-stat">
+                                    <i class="fas fa-star"></i>
+                                    <span class="rating-stars">
+                                        {{ type.avg_rating|floatformat:1 }}
+                                    </span> 平均评分
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            {% if type.description %}
+                            <div class="type-description">
+                                {{ type.description|truncatewords:30 }}
+                            </div>
+                            {% endif %}
+
+                            <div class="type-actions">
+                                {% if type.slug %}
+                                    <a href="{% url 'anime:anime_by_type' type.slug %}" class="btn btn-primary">
+                                        <i class="fas fa-list me-1"></i>查看该类型动漫
+                                    </a>
+                                {% else %}
+                                    <button class="btn btn-primary btn-disabled" disabled>
+                                        <i class="fas fa-list me-1"></i>查看该类型动漫
+                                    </button>
+                                {% endif %}
+
+                                {% if perms.anime.add_anime %}
+                                <a href="{% url 'anime:anime_create' %}?type={{ type.id }}" class="btn btn-outline-success">
+                                    <i class="fas fa-plus me-1"></i>添加动漫
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-message">
+                <div class="empty-icon">
+                    <i class="fas fa-tags"></i>
+                </div>
+                <h3>暂无动漫类型</h3>
+                <p class="text-muted">添加一些动漫类型来分类你的动漫</p>
+
+                {% if perms.anime.add_animetype %}
+                <a href="{% url 'anime:anime_type_create' %}" class="btn btn-primary mt-3">
+                    <i class="fas fa-plus-circle me-2"></i>添加新类型
+                </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 高级修复函数 - AJAX触发重建slug过程
+function fixEmptySlug(typeId) {
+    if (!typeId) return;
+
+    // 显示处理中反馈
+    const btn = event.target.closest('a');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    btn.classList.add('disabled');
+
+    // 调用后端API修复slug
+    fetch('/anime/types/fix-slug/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({id: typeId})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 成功修复，刷新页面
+            window.location.reload();
+        } else {
+            alert('修复失败: ' + data.error);
+            btn.innerHTML = originalHtml;
+            btn.classList.remove('disabled');
+        }
+    })
+    .catch(error => {
+        console.error('修复错误:', error);
+        alert('修复过程发生错误，请稍后再试');
+        btn.innerHTML = originalHtml;
+        btn.classList.remove('disabled');
+    });
+}
+</script>
+{% endblock %}

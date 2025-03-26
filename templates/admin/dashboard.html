@@ -1,0 +1,373 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block extrastyle %}
+<style>
+    /* 神经网络节点：数据卡片 */
+    .stats-card {
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+    }
+
+    .stats-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+
+    .stats-label {
+        font-size: 1rem;
+        color: #7f8c8d;
+        margin-top: 5px;
+    }
+
+    /* 视觉识别模块 */
+    .icon-wrapper {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 15px;
+    }
+
+    .icon-anime { background-color: #e74c3c; color: white; }
+    .icon-user { background-color: #3498db; color: white; }
+    .icon-rating { background-color: #f39c12; color: white; }
+    .icon-comment { background-color: #2ecc71; color: white; }
+
+    /* 数据可视化容器 */
+    .chart-container {
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .chart-title {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+        color: #2c3e50;
+    }
+
+    /* 数据流列表渲染器 */
+    .list-container {
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+
+    .list-title {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+        color: #2c3e50;
+    }
+
+    .list-item {
+        padding: 10px 0;
+        border-bottom: 1px solid #ecf0f1;
+    }
+
+    .list-item:last-child {
+        border-bottom: none;
+    }
+
+    /* 量子指示器 */
+    .custom-progress {
+        height: 6px;
+        background-color: #ecf0f1;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 5px;
+    }
+
+    .custom-progress-bar {
+        height: 100%;
+        border-radius: 3px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1>系统控制矩阵</h1>
+    <p class="help">已成功连接到动漫推荐系统核心，数据流就绪。</p>
+
+    <!-- 统计卡片矩阵 -->
+    <div class="row">
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="icon-wrapper icon-anime">
+                    <i class="fas fa-film fa-2x"></i>
+                </div>
+                <div class="stats-number">{{ anime_count }}</div>
+                <div class="stats-label">动漫总数</div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="icon-wrapper icon-user">
+                    <i class="fas fa-users fa-2x"></i>
+                </div>
+                <div class="stats-number">{{ user_count }}</div>
+                <div class="stats-label">用户总数</div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="icon-wrapper icon-rating">
+                    <i class="fas fa-star fa-2x"></i>
+                </div>
+                <div class="stats-number">{{ rating_count }}</div>
+                <div class="stats-label">评分总数</div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="stats-card">
+                <div class="icon-wrapper icon-comment">
+                    <i class="fas fa-comments fa-2x"></i>
+                </div>
+                <div class="stats-number">{{ comment_count }}</div>
+                <div class="stats-label">评论总数</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 图表区域 -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="chart-container">
+                <div class="chart-title">
+                    <i class="fas fa-chart-line me-2"></i>30天用户注册趋势
+                </div>
+                <canvas id="userSignupChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="list-container">
+                <div class="list-title">
+                    <i class="fas fa-user-plus me-2"></i>最新注册用户
+                </div>
+                {% for user in latest_users %}
+                <div class="list-item">
+                    <a href="{% url 'admin:auth_user_change' user.id %}">{{ user.username }}</a>
+                    <small class="text-muted">{{ user.date_joined|date:"Y-m-d H:i" }}</small>
+                </div>
+                {% empty %}
+                <div class="list-item">暂无注册用户</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="list-container">
+                <div class="list-title">
+                    <i class="fas fa-fire me-2"></i>最受欢迎的动漫
+                </div>
+                {% for anime in popular_anime %}
+                <div class="list-item">
+                    <a href="{% url 'admin:anime_anime_change' anime.id %}">{{ anime.title }}</a>
+                    <div class="custom-progress">
+                        <!-- 核心修复：数据域与渲染域隔离 -->
+                        <div class="custom-progress-bar bg-danger" data-value="{{ anime.popularity|floatformat:4 }}"></div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="list-item">暂无数据</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="list-container">
+                <div class="list-title">
+                    <i class="fas fa-star me-2"></i>评分最高的动漫
+                </div>
+                {% for anime in top_rated_anime %}
+                <div class="list-item">
+                    <a href="{% url 'admin:anime_anime_change' anime.id %}">{{ anime.title }}</a>
+                    <div class="d-flex align-items-center">
+                        <div class="text-warning me-2">
+                            {% with ''|center:anime.rating_avg|make_list as stars %}
+                            {% for _ in stars %}★{% endfor %}
+                            {% endwith %}
+                        </div>
+                        <small class="text-muted">{{ anime.rating_avg|floatformat:1 }} ({{ anime.rating_count }}人评分)</small>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="list-item">暂无数据</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="list-container">
+                <div class="list-title">
+                    <i class="fas fa-trophy me-2"></i>活跃用户
+                </div>
+                {% for user in active_users %}
+                <div class="list-item">
+                    <a href="{% url 'admin:auth_user_change' user.id %}">{{ user.username }}</a>
+                    <div class="d-flex text-muted mt-1">
+                        <small><i class="fas fa-star me-1"></i>{{ user.rating_count }}评分</small>
+                        <small class="ms-2"><i class="fas fa-comment me-1"></i>{{ user.comment_count }}评论</small>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="list-item">暂无数据</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="list-container">
+                <div class="list-title">
+                    <i class="fas fa-comments me-2"></i>最新评论
+                </div>
+                {% for comment in recent_comments %}
+                <div class="list-item">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'admin:recommendation_usercomment_change' comment.id %}">{{ comment.content|truncatechars:50 }}</a>
+                        <small class="text-muted">{{ comment.created_at|date:"m-d H:i" }}</small>
+                    </div>
+                    <div class="text-muted">
+                        <small>{{ comment.user.username }} 评论了 {{ comment.anime.title }}</small>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="list-item">暂无评论</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="chart-container">
+                <div class="chart-title">
+                    <i class="fas fa-chart-pie me-2"></i>动漫类型分布
+                </div>
+                <canvas id="animeTypeChart" width="400" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 数据传输层：使用DOM存储的高性能数据总线 -->
+<div id="django-data"
+     data-signup-labels="{{ signup_labels|default:'[]'|safe }}"
+     data-signup-values="{{ signup_values|default:'[]'|safe }}"
+     style="display:none;"></div>
+{% endblock %}
+
+{% block extrajs %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+<script>
+// 核心执行环境：自包含作用域
+(function() {
+    // 数据流提取器
+    const dataElement = document.getElementById('django-data');
+    const signupLabels = JSON.parse(dataElement.dataset.signupLabels || '[]');
+    const signupValues = JSON.parse(dataElement.dataset.signupValues || '[]');
+
+    // DOM就绪事件
+    document.addEventListener('DOMContentLoaded', function() {
+        // 进度条注入器：解决CSS/Django模板冲突
+        document.querySelectorAll('.custom-progress-bar[data-value]').forEach(bar => {
+            const value = parseFloat(bar.getAttribute('data-value') || 0);
+            // 延迟16ms确保在下一帧渲染（优化重排）
+            setTimeout(() => {
+                bar.style.width = (value * 100) + '%';
+            }, 16);
+        });
+
+        // 初始化图表系统
+        initUserSignupChart();
+        initAnimeTypeChart();
+    });
+
+    // 图表初始化函数
+    function initUserSignupChart() {
+        const ctx = document.getElementById('userSignupChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: signupLabels,
+                datasets: [{
+                    label: '新用户注册数',
+                    data: signupValues,
+                    backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                    borderColor: 'rgba(52, 152, 219, 1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    pointBackgroundColor: 'rgba(52, 152, 219, 1)',
+                    pointBorderColor: '#fff',
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
+                    }
+                },
+                plugins: { legend: { display: false } },
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+    }
+
+    function initAnimeTypeChart() {
+        // 模拟数据，实际环境中应从后端获取
+        const typeLabels = ['少年', '少女', '热血', '恋爱', '科幻', '奇幻', '其他'];
+        const typeData = [45, 28, 65, 32, 18, 25, 12];
+        const colors = [
+            'rgba(231, 76, 60, 0.7)', 'rgba(52, 152, 219, 0.7)',
+            'rgba(241, 196, 15, 0.7)', 'rgba(46, 204, 113, 0.7)',
+            'rgba(155, 89, 182, 0.7)', 'rgba(52, 73, 94, 0.7)',
+            'rgba(230, 126, 34, 0.7)'
+        ];
+
+        const ctx = document.getElementById('animeTypeChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: typeLabels,
+                datasets: [{
+                    data: typeData,
+                    backgroundColor: colors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'right' } }
+            }
+        });
+    }
+})();
+</script>
+{% endblock %}

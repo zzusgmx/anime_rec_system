@@ -1,0 +1,287 @@
+<!-- templates/admin/base_site.html -->
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('动漫推荐系统') }}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">
+        <i class="fas fa-tv"></i> 动漫推荐系统管理后台
+    </a>
+</h1>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<style>
+    :root {
+        --primary: #7952b3;
+        --secondary: #6c757d;
+        --accent: #e83e8c;
+        --primary-fg: #fff;
+
+        --body-bg: #f8f9fa;
+        --body-fg: #212529;
+        --body-quiet-color: #6c757d;
+        --body-loud-color: #343a40;
+
+        --header-color: #fff;
+        --header-branding-color: #fff;
+        --header-bg: var(--primary);
+        --header-link-color: #fff;
+
+        --breadcrumbs-fg: #6c757d;
+        --breadcrumbs-link-fg: var(--primary);
+        --breadcrumbs-bg: #fff;
+
+        --link-fg: var(--primary);
+        --link-hover-color: #5a3d82;
+
+        --button-fg: #fff;
+        --button-bg: var(--primary);
+        --button-hover-bg: #5a3d82;
+
+        --default-button-bg: #f8f9fa;
+        --default-button-fg: #212529;
+        --close-button-bg: #e83e8c;
+        --close-button-fg: #fff;
+        --delete-button-bg: #dc3545;
+        --delete-button-fg: #fff;
+
+        --object-tools-fg: #fff;
+        --object-tools-bg: var(--primary);
+        --object-tools-hover-bg: #5a3d82;
+    }
+
+    /* 全局样式优化 */
+    body {
+        background-color: var(--body-bg);
+    }
+
+    /* 标题样式 */
+    #header {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    #branding h1 {
+        font-weight: 600;
+    }
+
+    #branding h1 i {
+        margin-right: 8px;
+    }
+
+    /* 侧边栏样式 */
+    .module h2, .module caption, .inline-group h2 {
+        background-color: var(--primary);
+    }
+
+    div.breadcrumbs {
+        background-color: #fff;
+        color: var(--breadcrumbs-fg);
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    /* 内容区域卡片化 */
+    .dashboard #content {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .dashboard .module {
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+        overflow: hidden;
+        transition: transform 0.3s;
+    }
+
+    .dashboard .module:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    /* 美化表单样式 */
+    .aligned label {
+        color: #343a40;
+        font-weight: 500;
+    }
+
+    input[type=text], input[type=password], input[type=email],
+    input[type=url], input[type=number], input[type=tel],
+    textarea, select, .vTextField {
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+
+    input[type=text]:focus, input[type=password]:focus,
+    input[type=email]:focus, input[type=url]:focus,
+    input[type=number]:focus, input[type=tel]:focus,
+    textarea:focus, select:focus, .vTextField:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 0.2rem rgba(121, 82, 179, 0.25);
+    }
+
+    /* 改进按钮样式 */
+    .button, input[type=submit], input[type=button], .submit-row input,
+    a.button {
+        border-radius: 4px;
+        transition: all 0.3s;
+        font-weight: 500;
+    }
+
+    .button:active, input[type=submit]:active, input[type=button]:active,
+    .button:focus, input[type=submit]:focus, input[type=button]:focus,
+    .button:hover, input[type=submit]:hover, input[type=button]:hover {
+        background-color: var(--button-hover-bg);
+    }
+
+    .button.default, input[type=submit].default, .submit-row input.default {
+        background-color: var(--primary);
+    }
+
+    .button.default:hover, input[type=submit].default:hover,
+    .submit-row input.default:hover {
+        background-color: var(--button-hover-bg);
+    }
+
+    /* 美化列表页面 */
+    #changelist-filter h2 {
+        background-color: var(--primary);
+        border-radius: 4px 4px 0 0;
+    }
+
+    #changelist-filter ul {
+        margin-left: 0;
+    }
+
+    #changelist-filter li {
+        padding: 8px 15px;
+        border-bottom: 1px solid #eee;
+    }
+
+    #changelist-filter li.selected {
+        background-color: rgba(121, 82, 179, 0.1);
+        border-left: 3px solid var(--primary);
+    }
+
+    /* 美化分页样式 */
+    .paginator {
+        margin: 15px 0;
+        display: flex;
+        justify-content: center;
+    }
+
+    .paginator .pages-wrapper {
+        display: inline-block;
+        margin: 0 10px;
+    }
+
+    .paginator a:link, .paginator a:visited {
+        padding: 5px 10px;
+        border: 1px solid #ddd;
+        margin: 0 2px;
+        border-radius: 3px;
+        color: var(--primary);
+    }
+
+    .paginator .pages span.current-page {
+        background-color: var(--primary);
+        border-color: var(--primary);
+        color: white;
+        padding: 5px 10px;
+        margin: 0 2px;
+        border-radius: 3px;
+    }
+
+    .paginator a:hover {
+        background-color: rgba(121, 82, 179, 0.1);
+        border-color: var(--primary);
+    }
+
+    /* 表单提交行 */
+    .submit-row {
+        background-color: #f8f9fa;
+        border: 1px solid #eee;
+        border-radius: 4px;
+    }
+
+    /* 登录页面美化 */
+    .login #container {
+        border-radius: 5px;
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        padding: 30px;
+    }
+
+    .login #header {
+        padding: 20px;
+        border-radius: 5px 5px 0 0;
+    }
+
+    .login .form-row label {
+        color: #343a40;
+        font-weight: 500;
+    }
+
+    /* 自适应优化 */
+    @media (max-width: 767px) {
+        #changelist-form .actions {
+            float: none;
+            margin-bottom: 15px;
+        }
+
+        #changelist-form .actions label {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        #changelist-form .actions select {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        #changelist-form .actions button {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block usertools %}
+<div id="user-tools">
+    {% if user.is_active and user.is_staff %}
+        <span>欢迎，</span>
+        <strong>{% firstof user.get_short_name user.get_username %}</strong>
+
+        <a href="{% url 'admin:dashboard' %}">
+            <i class="fas fa-tachometer-alt"></i> 仪表板
+        </a>
+
+        <a href="{% url 'admin:rating-analytics' %}">
+            <i class="fas fa-chart-line"></i> 评分分析
+        </a>
+
+        <a href="{% url 'admin:favorite-analytics' %}">
+            <i class="fas fa-heart"></i> 收藏分析
+        </a>
+
+        {% if user.has_usable_password %}
+        <a href="{% url 'admin:password_change' %}">
+            <i class="fas fa-key"></i> 修改密码
+        </a>
+        {% endif %}
+
+        <a href="{% url 'admin:logout' %}">
+            <i class="fas fa-sign-out-alt"></i> 退出登录
+        </a>
+    {% endif %}
+</div>
+{% endblock %}

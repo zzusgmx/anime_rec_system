@@ -171,7 +171,7 @@
                                     {% if perms.anime.delete_animetype %}
                                         {% if type.slug %}
                                             <a href="{% url 'anime:anime_type_delete' type.slug %}"
-                                               class="btn btn-sm btn-outline-danger {% if type.anime_count > 0 %}disabled{% endif %}">
+                                               class="btn btn-sm btn-outline-danger">
                                                 <i class="fas fa-trash-alt"></i>
                                             </a>
                                         {% else %}

@@ -1,0 +1,345 @@
+<!-- templates/recommendation/recommendations.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}个性化推荐 - 动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<style>
+    .strategy-selector {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 30px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .strategy-btn {
+        border-radius: 20px;
+        padding: 8px 20px;
+        margin: 5px;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .strategy-btn i {
+        margin-right: 8px;
+    }
+
+    .strategy-btn.active {
+        background-color: #7952b3;
+        color: white;
+        box-shadow: 0 4px 10px rgba(121, 82, 179, 0.3);
+        transform: translateY(-2px);
+    }
+
+    .strategy-info {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: rgba(121, 82, 179, 0.1);
+        border-radius: 8px;
+    }
+
+    .recommendation-card {
+        transition: transform 0.3s, box-shadow 0.3s;
+        margin-bottom: 25px;
+        height: 100%;
+        border: none;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.07);
+    }
+
+    .recommendation-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 25px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-img-container {
+        height: 250px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .card-img-container img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.5s;
+    }
+
+    .recommendation-card:hover .card-img-container img {
+        transform: scale(1.05);
+    }
+
+    .confidence-badge {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: #fff;
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        z-index: 2;
+    }
+
+    .confidence-high {
+        background-color: rgba(40, 167, 69, 0.8);
+    }
+
+    .confidence-medium {
+        background-color: rgba(255, 193, 7, 0.8);
+    }
+
+    .confidence-low {
+        background-color: rgba(108, 117, 125, 0.8);
+    }
+
+    .card-footer {
+        background-color: transparent;
+        border-top: 1px solid rgba(0,0,0,0.05);
+    }
+
+    .rating-stars {
+        color: #ffc107;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 50px 0;
+    }
+
+    .empty-icon {
+        font-size: 5rem;
+        color: #dee2e6;
+        margin-bottom: 20px;
+    }
+
+    /* 媒体查询优化移动设备 */
+    @media (max-width: 768px) {
+        .strategy-btn {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+        }
+    }
+
+    .algo-header {
+        background: linear-gradient(45deg, #8e2de2, #4a00e0);
+        color: white;
+        padding: 20px;
+        margin-bottom: 30px;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(78, 0, 224, 0.2);
+    }
+
+    .algo-icon {
+        font-size: 2rem;
+        margin-right: 15px;
+        vertical-align: middle;
+    }
+
+    .algo-title {
+        display: inline;
+        vertical-align: middle;
+    }
+
+    .algo-description {
+        margin-top: 10px;
+        opacity: 0.9;
+    }
+</style>
+<link rel="stylesheet" href="{% static 'recommendation/css/recommendation-enhanced.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    {% if messages %}
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <h1 class="mb-3">个性化推荐</h1>
+    <p class="text-muted mb-4">基于您的观看历史和偏好，为您精选的动漫推荐</p>
+
+    <!-- 推荐策略选择器 - 修改为使用data-strategy属性 -->
+    <div class="strategy-selector">
+        <div class="row">
+            <div class="col-12">
+                <h5 class="mb-3"><i class="fas fa-sliders-h me-2"></i>选择推荐算法</h5>
+                <div class="d-flex flex-wrap">
+                    {% for strat in strategies %}
+                    <a href="javascript:void(0)" class="btn strategy-btn {% if strategy == strat.code %}active{% else %}btn-outline-primary{% endif %} strategy-selector" data-strategy="{{ strat.code }}">
+                        <i class="fas {{ strat.icon }}"></i> {{ strat.name }}
+                    </a>
+                    {% endfor %}
+                </div>
+
+                {% for strat in strategies %}
+                {% if strategy == strat.code %}
+                <div class="strategy-info mt-3" id="strategy-info-{{ strat.code }}">
+                    <div class="d-flex align-items-center">
+                        <i class="fas {{ strat.icon }} me-2"></i>
+                        <strong>{{ strat.name }}</strong>
+                    </div>
+                    <p class="mb-0 small text-muted">{{ strat.desc }}</p>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 当前算法描述 -->
+    <div class="algo-header">
+        <i class="fas
+            {% if strategy == 'hybrid' %}fa-magic
+            {% elif strategy == 'cf' %}fa-users
+            {% elif strategy == 'content' %}fa-tags
+            {% elif strategy == 'ml' %}fa-brain
+            {% else %}fa-fire{% endif %}
+            algo-icon"></i>
+        <h2 class="algo-title">
+            {% if strategy == 'hybrid' %}混合推荐
+            {% elif strategy == 'cf' %}协同过滤
+            {% elif strategy == 'content' %}基于内容推荐
+            {% elif strategy == 'ml' %}基于GBDT的机器学习推荐
+            {% else %}热门推荐{% endif %}
+        </h2>
+        <p class="algo-description">
+            {% if strategy == 'hybrid' %}
+            量子混合算法结合了多种推荐策略，综合考虑用户偏好和内容相似性，提供最全面的推荐结果。
+            {% elif strategy == 'cf' %}
+            协同过滤基于"相似的用户喜欢相似的动漫"原理，通过分析用户行为模式发现隐藏的关联。
+            {% elif strategy == 'content' %}
+            内容推荐基于动漫的特征相似度，分析类型、风格、制作公司等元数据，推荐风格相似的作品。
+            {% elif strategy == 'ml' %}
+            梯度提升决策树(GBDT)是一种强大的机器学习算法，能够从复杂的用户-动漫交互数据中学习深层次模式。
+            {% else %}
+            热门推荐基于全网用户的集体智慧，展示当前最受欢迎的动漫作品。
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- 推荐列表容器 - 此处将由JavaScript动态更新 -->
+    <div id="recommendationContainer" class="row">
+        <div class="col-12 text-center my-5">
+            <div class="loading-container">
+                <div class="quantum-spinner"></div>
+                <p class="mt-3">量子态计算中...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'recommendation/js/recommendation-engine.js' %}"></script>
+<script src="{% static 'recommendation/js/recommendation-ui.js' %}"></script>
+<script src="{% static 'recommendation/js/recommendations-controller.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 检查组件是否已加载，添加重试机制
+        function initRecommendations(retries = 5) {
+            if (typeof window.recommendationUI !== 'undefined') {
+                // 获取初始策略，确保有默认值
+                const initialStrategy = '{{ strategy }}' || 'hybrid';
+                console.log('初始化推荐系统，策略:', initialStrategy);
+                window.recommendationUI.loadRecommendations(initialStrategy);
+            } else if (retries > 0) {
+                console.warn('UI组件未加载，剩余重试次数:', retries);
+                setTimeout(() => initRecommendations(retries - 1), 300);
+            } else {
+                console.error('推荐UI组件未正确加载，尝试手动初始化');
+                // 尝试手动创建组件
+                try {
+                    if (typeof RecommendationUI === 'function') {
+                        window.recommendationUI = new RecommendationUI('recommendationContainer');
+                        const initialStrategy = '{{ strategy }}' || 'hybrid';
+                        window.recommendationUI.loadRecommendations(initialStrategy);
+                    }
+                } catch (e) {
+                    console.error('手动初始化失败:', e);
+                    // 显示错误信息给用户
+                    document.getElementById('recommendationContainer').innerHTML = `
+                        <div class="col-12 text-center my-5">
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                加载推荐组件失败，请刷新页面重试
+                            </div>
+                            <button class="btn btn-primary mt-3" onclick="location.reload()">
+                                <i class="fas fa-sync-alt me-1"></i> 刷新页面
+                            </button>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        // 启动初始化
+        setTimeout(initRecommendations, 100);
+    });
+</script>
+{% endblock %}
+
+<!-- 在recommendations.html模板底部添加 -->
+{% if request.user.is_staff %}
+<div class="card mt-4">
+    <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">调试信息</h5>
+    </div>
+    <div class="card-body">
+        <p><strong>策略:</strong> {{ strategy }}</p>
+        <p><strong>推荐数量:</strong> {{ recommendations|length }}</p>
+        <p><strong>用户ID:</strong> {{ request.user.id }}</p>
+        <button class="btn btn-primary" id="testApiBtn">测试API</button>
+        <div id="apiResult" class="mt-3"></div>
+    </div>
+</div>
+
+<script>
+document.getElementById('testApiBtn').addEventListener('click', function() {
+    fetch('/api/recommendations/?strategy={{ strategy }}')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('apiResult').innerHTML =
+                '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        })
+        .catch(error => {
+            document.getElementById('apiResult').innerHTML =
+                '<div class="alert alert-danger">API错误: ' + error + '</div>';
+        });
+});
+</script>
+
+// 在recommendations.html底部添加这段代码
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("DOM加载完成");
+
+    // 查找所有策略按钮
+    const buttons = document.querySelectorAll('.strategy-selector');
+    console.log("找到按钮数量:", buttons.length);
+
+    // 为每个按钮添加简单的点击事件
+    buttons.forEach(button => {
+        console.log("按钮:", button.textContent, "策略:", button.dataset.strategy);
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            alert("点击了按钮: " + this.dataset.strategy);
+        });
+    });
+});
+</script>
+
+{% endif %}

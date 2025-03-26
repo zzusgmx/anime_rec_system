@@ -27,7 +27,7 @@ urlpatterns = [
     path('anime/', include('anime.urls', namespace='anime')),
 
     # 推荐应用路由
-    # path('recommendations/', include('recommendation.urls', namespace='recommendation')),
+    path('recommendations/', include('recommendation.urls', namespace='recommendation')),
 
     # 主页重定向 - 临时改为动漫列表页
     path('', RedirectView.as_view(url='/anime/', permanent=False)),

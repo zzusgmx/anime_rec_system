@@ -1,0 +1,170 @@
+/* recommendation-enhanced.css */
+/* 量子态推荐系统样式增强 */
+
+/* 推荐策略选择器 */
+.strategy-selector {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.strategy-selector::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, rgba(139, 92, 246, 0.1), rgba(16, 185, 129, 0.1));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: -1;
+  border-radius: inherit;
+}
+
+.strategy-selector.active {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.strategy-selector.active::before {
+  opacity: 1;
+}
+
+.strategy-selector:hover:not(.active) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.strategy-selector:hover:not(.active)::before {
+  opacity: 0.5;
+}
+
+/* 推荐卡片增强 */
+.recommendation-card {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.4s ease, transform 0.4s ease, box-shadow 0.3s ease;
+}
+
+.confidence-badge {
+  transition: background-color 0.3s ease;
+}
+
+.confidence-level {
+  width: 0%; /* 初始为0，动画到实际值 */
+  transition: width 1s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+/* 加载状态 */
+.quantum-spinner {
+  display: inline-block;
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(139, 92, 246, 0.2);
+  border-radius: 50%;
+  border-top-color: #8b5cf6;
+  animation: quantum-spin 1s ease-in-out infinite;
+}
+
+@keyframes quantum-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 算法标题增强 */
+.algo-header {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.5s ease;
+}
+
+.algo-header::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(
+    45deg,
+    rgba(139, 92, 246, 0.05) 0%,
+    rgba(16, 185, 129, 0.05) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  z-index: -1;
+}
+
+.algo-header:hover::after {
+  opacity: 1;
+}
+
+.algo-title {
+  position: relative;
+  display: inline-block;
+}
+
+.algo-title::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(to right, #8b5cf6, #10b981);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+}
+
+.algo-header:hover .algo-title::after {
+  transform: scaleX(1);
+}
+
+/* 颜色主题增强 */
+.icon-hybrid { color: #7c3aed; }
+.icon-cf { color: #2563eb; }
+.icon-content { color: #10b981; }
+.icon-ml { color: #ef4444; }
+.icon-popular { color: #f97316; }
+
+/* 空状态增强 */
+.empty-state {
+  transition: all 0.3s ease;
+}
+
+.empty-state:hover {
+  transform: translateY(-5px);
+}
+
+.empty-icon {
+  transition: transform 0.3s ease;
+}
+
+.empty-state:hover .empty-icon {
+  transform: scale(1.1);
+}
+
+/* 星级评分增强 */
+.rating-stars i {
+  transition: transform 0.2s ease;
+}
+
+.rating-stars:hover i {
+  transform: rotate(5deg);
+}
+
+.rating-stars:hover i:nth-child(odd) {
+  transform: rotate(-5deg);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .recommendation-card {
+    transform: translateY(10px);
+  }
+
+  .algo-header {
+    padding: 15px;
+  }
+}

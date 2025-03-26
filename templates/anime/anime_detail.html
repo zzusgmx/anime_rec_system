@@ -1,3 +1,352 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ anime.title }} - 动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'anime/css/anime_detail.css' %}">
+<style>
+    /* 动漫详情页样式 */
+    .anime-header {
+        background-size: cover;
+        background-position: center;
+        background-blend-mode: overlay;
+        padding: 3rem 0;
+        position: relative;
+        color: white;
+        background-color: rgba(0, 0, 0, 0.7);
+    }
+
+    .anime-cover {
+        max-width: 100%;
+        border-radius: 8px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+
+    .anime-info {
+        padding-left: 20px;
+    }
+
+    .anime-title {
+        font-size: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .anime-original-title {
+        font-size: 1.2rem;
+        opacity: 0.8;
+        margin-bottom: 1rem;
+    }
+
+    .anime-meta {
+        margin-bottom: 1.5rem;
+    }
+
+    .anime-meta span {
+        margin-right: 1rem;
+    }
+
+    .anime-description {
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+    }
+
+    .interaction-buttons {
+        margin-bottom: 2rem;
+    }
+
+    .interaction-buttons .btn {
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .rating-stars {
+        color: #ffc107;
+        font-size: 1.2rem;
+    }
+
+    .rating-stars-input i {
+        cursor: pointer;
+        margin-right: 3px;
+    }
+
+    .related-anime-section {
+        margin-top: 3rem;
+    }
+
+    .related-anime-card {
+        margin-bottom: 1.5rem;
+    }
+
+    .related-anime-card img {
+        height: 200px;
+        object-fit: cover;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- 动漫头部区域 -->
+<div class="anime-header" id="animeHeader" data-cover-url="{% if anime.cover %}{{ anime.cover.url }}{% endif %}">
+    <div class="container">
+        <div class="row">
+            <!-- 左侧封面 -->
+            <div class="col-md-4 text-center">
+                {% if anime.cover %}
+                    <img src="{{ anime.cover.url }}" alt="{{ anime.title }}" class="anime-cover">
+                {% else %}
+                    <img src="{% static 'images/no-image.jpg' %}" alt="无图片" class="anime-cover">
+                {% endif %}
+
+                <!-- 评分展示 -->
+                <div class="mt-3">
+                    <div class="rating-stars mb-1">
+                        {% if anime.rating_avg %}
+                            {% for i in "12345"|make_list %}
+                                {% if forloop.counter <= anime.rating_avg|floatformat:"0" %}
+                                    <i class="fas fa-star"></i>
+                                {% else %}
+                                    <i class="far fa-star"></i>
+                                {% endif %}
+                            {% endfor %}
+                            <span class="ms-2 text-white">{{ anime.rating_avg|floatformat:1 }}/5.0</span>
+                        {% else %}
+                            <span class="text-white">暂无评分</span>
+                        {% endif %}
+                    </div>
+                    <small class="text-white">{{ anime.rating_count }} 人已评分</small>
+                </div>
+
+                <!-- 管理员CRUD操作按钮 -->
+                {% if perms.anime.change_anime or perms.anime.delete_anime %}
+                <div class="mt-3">
+                    {% if perms.anime.change_anime %}
+                    <a href="{% url 'anime:anime_edit' anime.slug %}" class="btn btn-warning btn-sm">
+                        <i class="fas fa-edit me-1"></i>编辑动漫
+                    </a>
+                    {% endif %}
+
+                    {% if perms.anime.delete_anime %}
+                    <a href="{% url 'anime:anime_delete' anime.slug %}" class="btn btn-danger btn-sm mt-2">
+                        <i class="fas fa-trash-alt me-1"></i>删除动漫
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- 右侧信息 -->
+            <div class="col-md-8 anime-info">
+                <h1 class="anime-title">{{ anime.title }}</h1>
+
+                {% if anime.original_title %}
+                <div class="anime-original-title">{{ anime.original_title }}</div>
+                {% endif %}
+
+                <div class="anime-meta">
+                    <span><i class="fas fa-tag me-1"></i>{{ anime.type.name }}</span>
+                    <span><i class="fas fa-calendar-alt me-1"></i>{{ anime.release_date|date:"Y年m月d日" }}</span>
+                    <span><i class="fas fa-film me-1"></i>{{ anime.episodes }}集</span>
+
+                    {% if anime.duration %}
+                    <span><i class="fas fa-clock me-1"></i>{{ anime.duration }}分钟/集</span>
+                    {% endif %}
+
+                    {% if anime.is_completed %}
+                    <span class="badge bg-success">已完结</span>
+                    {% else %}
+                    <span class="badge bg-primary">连载中</span>
+                    {% endif %}
+
+                    {% if anime.is_featured %}
+                    <span class="badge bg-danger">编辑推荐</span>
+                    {% endif %}
+                </div>
+
+                <div class="anime-description">
+                    {{ anime.description|linebreaks }}
+                </div>
+
+                <!-- 互动按钮 -->
+                <div class="interaction-buttons">
+                    <!-- 评分按钮 -->
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ratingModal">
+                        <i class="fas fa-star me-2"></i>评分
+                    </button>
+
+                    <!-- 收藏按钮 -->
+                    <button id="favoriteButton" class="btn btn-outline-danger {% if user_data.has_favorited %}active{% endif %}">
+                        <i class="{% if user_data.has_favorited %}fas{% else %}far{% endif %} fa-heart me-2"></i>
+                        {% if user_data.has_favorited %}已收藏{% else %}收藏{% endif %}
+                    </button>
+
+                    <!-- 评论按钮 -->
+                    <button id="commentButton" class="btn btn-outline-secondary">
+                        <i class="far fa-comment me-2"></i>评论
+                    </button>
+                </div>
+
+                <!-- 热门度进度条 -->
+                <div class="mb-4">
+                    <h5>热门度</h5>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar bg-danger" role="progressbar"
+                             style="width: 0%;"
+                             aria-valuenow="{{ anime.popularity|floatformat:2 }}"
+                             aria-valuemin="0" aria-valuemax="1">
+                        </div>
+                    </div>
+                    <small class="text-white">{{ anime.popularity|floatformat:1 }}/10.0</small>
+                </div>
+
+                <!-- 统计数据 -->
+                <div>
+                    <span class="me-3"><i class="fas fa-eye me-1"></i>{{ anime.view_count }} 浏览</span>
+                    <span class="me-3"><i class="fas fa-heart me-1"></i>{{ anime.favorite_count }} 收藏</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 内容主体 -->
+<div class="container py-5">
+    <!-- 相关动漫 -->
+    {% if related_animes %}
+    <div class="related-anime-section">
+        <h2 class="section-title mb-4">相关推荐</h2>
+        <div class="row">
+            {% for related in related_animes %}
+            <div class="col-md-4 col-sm-6 mb-4">
+                <div class="card related-anime-card h-100">
+                    <div style="height: 200px; overflow: hidden;">
+                        {% if related.cover %}
+                            <img src="{{ related.cover.url }}" alt="{{ related.title }}" class="card-img-top">
+                        {% else %}
+                            <img src="{% static 'images/no-image.jpg' %}" alt="无图片" class="card-img-top">
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        <h5 class="card-title">{{ related.title }}</h5>
+                        <p class="card-text text-muted small">{{ related.description|truncatechars:80 }}</p>
+                        <a href="{% url 'anime:anime_detail' related.slug %}" class="stretched-link"></a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 最新评论 -->
+    {% if recent_comments %}
+    <div class="mt-5">
+        <h2 class="section-title mb-4">最新评论</h2>
+        <div class="comments-section">
+            {% for comment in recent_comments %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <strong>{{ comment.user.username }}</strong>
+                            <span class="text-muted ms-2">{{ comment.timestamp|date:"Y-m-d H:i" }}</span>
+                        </div>
+                        <span class="badge bg-secondary">
+                            <i class="fas fa-thumbs-up me-1"></i>{{ comment.like_count }}
+                        </span>
+                    </div>
+                    <p class="card-text">{{ comment.content }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if user.is_authenticated %}
+        <button id="mainCommentButton" class="btn btn-outline-primary mt-3">
+            <i class="far fa-comment me-2"></i>发表评论
+        </button>
+        {% else %}
+        <div class="alert alert-secondary mt-3" role="alert">
+            <i class="fas fa-info-circle me-2"></i>登录后才能发表评论
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="mt-5">
+        <div class="alert alert-light" role="alert">
+            <div class="text-center py-3">
+                <i class="far fa-comment fa-3x mb-3 text-muted"></i>
+                <h4>暂无评论</h4>
+                <p class="text-muted">成为第一个评论这部动漫的人吧！</p>
+
+                {% if user.is_authenticated %}
+                <button id="alternateCommentButton" class="btn btn-outline-primary mt-2">
+                    <i class="far fa-comment me-2"></i>发表评论
+                </button>
+                {% else %}
+                <a href="{% url 'login' %}?next={{ request.path }}" class="btn btn-outline-primary mt-2">
+                    <i class="fas fa-sign-in-alt me-2"></i>登录后评论
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 评分模态框 -->
+<div class="modal fade" id="ratingModal" tabindex="-1" aria-labelledby="ratingModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ratingModalLabel">为《{{ anime.title }}》评分</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <div class="rating-stars-input mb-2">
+                        <i class="far fa-star rating-star" data-rating="1"></i>
+                        <i class="far fa-star rating-star" data-rating="2"></i>
+                        <i class="far fa-star rating-star" data-rating="3"></i>
+                        <i class="far fa-star rating-star" data-rating="4"></i>
+                        <i class="far fa-star rating-star" data-rating="5"></i>
+                    </div>
+                    <div>
+                        您选择的评分: <span id="ratingValue">0</span> 星
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="submitRating">提交评分</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 评论模态框 -->
+<div class="modal fade" id="commentModal" tabindex="-1" aria-labelledby="commentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="commentModalLabel">发表评论</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="commentContent" class="form-label">评论内容</label>
+                    <textarea class="form-control" id="commentContent" rows="5" placeholder="分享您对这部动漫的看法..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" id="submitComment">发表评论</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
 {% block extra_js %}
 <script>
 // 使用Django模板变量初始化JavaScript变量，添加严格类型转换和默认值处理
@@ -112,8 +461,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // 评论按钮点击事件
-    $('#commentButton, #firstCommentButton').click(function() {
+    // 评论按钮点击事件 - 更新后的选择器包含所有评论按钮
+    $('#commentButton, #mainCommentButton, #alternateCommentButton').click(function() {
         if (!isLoggedIn) {
             showLoginAlert();
             return;
@@ -139,6 +488,15 @@ document.addEventListener('DOMContentLoaded', function() {
         alert('评论功能将在后续开发中实现，感谢您的参与！');
         $('#commentModal').modal('hide');
     });
+
+    // 设置热门度进度条宽度
+    setTimeout(function() {
+        const popularityBar = document.querySelector('.progress-bar');
+        if (popularityBar) {
+            const popularityValue = parseFloat(popularityBar.getAttribute('aria-valuenow')) || 0;
+            popularityBar.style.width = (popularityValue * 100) + '%';
+        }
+    }, 500);
 });
 
 // 更新星星显示

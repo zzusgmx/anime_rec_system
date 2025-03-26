@@ -35,20 +35,15 @@ class CustomLoginView(LoginView):
     template_name = 'users/login.html'
 
     def form_valid(self, form):
-        """登录成功处理"""
+        """登录成功处理 - Web界面认证策略"""
         remember_me = form.cleaned_data.get('remember_me')
 
         # 如果用户不想被记住，设置会话过期时间为关闭浏览器时
         if not remember_me:
             self.request.session.set_expiry(0)
 
-        # 通过JWT创建用户令牌
+        # 不再生成JWT令牌，使用Django原生会话认证
         user = form.get_user()
-        refresh = RefreshToken.for_user(user)
-
-        # 将令牌存储在会话中（可选）
-        self.request.session['jwt_refresh'] = str(refresh)
-        self.request.session['jwt_access'] = str(refresh.access_token)
 
         messages.success(self.request, f'欢迎回来, {user.username}!')
         return super().form_valid(form)

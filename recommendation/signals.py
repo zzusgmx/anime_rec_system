@@ -152,6 +152,7 @@ def handle_favorite_deletion(sender, instance, **kwargs):
 # =============== 辅助函数 ===============
 
 def update_user_preference(user, anime):
+    #from users.models import UserBrowsing, UserPreference
     """
     计算并更新用户对特定动漫的偏好值
     综合考虑评分、评论、收藏、点赞等行为
@@ -172,7 +173,17 @@ def update_user_preference(user, anime):
     favorite_weight = 20 if has_favorite else 0
 
     # 浏览权重10%（需要从users应用导入）
-    from users.models import UserBrowsing
+    try:
+        from users.models import UserBrowsing
+    except ImportError:
+        # 创建一个模拟对象，防止系统崩溃
+        class UserBrowsing:
+            objects = None
+
+            @classmethod
+            def filter(cls, *args, **kwargs):
+                return []
+
     try:
         browsing = UserBrowsing.objects.get(user=user, anime=anime)
         browse_count = browsing.browse_count

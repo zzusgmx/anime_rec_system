@@ -1,14 +1,76 @@
 # anime_rec_system/settings.py
+# settings.py 顶部
+
 
 import os
 from pathlib import Path
 from datetime import timedelta
 
+# 量子影子变量 - 静态分析引擎锚点
+STATIC_URL = ''  # 将被后续代码覆盖
+MEDIA_URL = ''   # 静态分析引擎专用声明
+DATABASES = {}   # 引用前置声明
+INSTALLED_APPS = []  # 量子锚点
+MIDDLEWARE = []  # 静态分析引擎可见性增强
+
+# 环境感知 - 量子配置架构
+ENV = os.getenv('DJANGO_ENV', 'development')
+PRODUCTION = ENV == 'production'
+TESTING = ENV == 'testing'
+
+# 条件配置
+DEBUG = not PRODUCTION  # 生产环境自动关闭DEBUG
+
+
 # 构建根目录路径量子坐标
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # 安全密钥 - 生产环境需替换！
-SECRET_KEY = 'django-insecure-replace-this-with-your-secure-key-in-production'
+# 密钥量子化 - 环境感知的自适应配置
+SECRET_KEY = os.getenv(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-replace-this-with-your-secure-key-in-production' if DEBUG else ''
+)
+if not SECRET_KEY and not DEBUG:
+    raise Exception("生产环境必须设置DJANGO_SECRET_KEY环境变量")
+
+# 添加静态文件压缩
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'
+
+# 生产环境CDN支持
+if not DEBUG:
+    STATIC_URL = os.getenv('STATIC_CDN_URL', STATIC_URL)
+    MEDIA_URL = os.getenv('MEDIA_CDN_URL', MEDIA_URL)
+
+if not DEBUG:
+    # 生产环境使用django-db-connection-pool
+    DATABASES['default']['ENGINE'] = 'django_db_connection_pool.backends.mysql'
+    DATABASES['default']['POOL_OPTIONS'] = {
+        'POOL_SIZE': 20,
+        'MAX_OVERFLOW': 10,
+        'RECYCLE': 300,  # 连接回收时间(秒)
+    }
+
+# 添加应用性能监控
+if not DEBUG:
+    INSTALLED_APPS += ['django_prometheus']
+    MIDDLEWARE = ['django_prometheus.middleware.PrometheusBeforeMiddleware'] + MIDDLEWARE
+    MIDDLEWARE.append('django_prometheus.middleware.PrometheusAfterMiddleware')
+
+# 添加CSP保护
+MIDDLEWARE.append('csp.middleware.CSPMiddleware')
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "fonts.googleapis.com")
+CSP_SCRIPT_SRC = ("'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "code.jquery.com")
+CSP_FONT_SRC = ("'self'", "fonts.gstatic.com")
+CSP_IMG_SRC = ("'self'", "data:", "i.imgur.com")
+
+# 加强CSRF保护
+CSRF_COOKIE_HTTPONLY = True  # JS无法读取CSRF Token
+CSRF_USE_SESSIONS = True     # 将Token存储在Session而非Cookie
+
+# XSS保护加强
+SECURE_BROWSER_XSS_FILTER = True
 
 # 系统态
 DEBUG = True
@@ -129,8 +191,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'anime_rec',
-        'USER': 'root',
-        'PASSWORD': 'Qingbei700.',
+        'USER': os.getenv('DB_USER', 'root'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'Qingbei700.'),
         'HOST': 'localhost',
         'PORT': '3306',
         # 🔧 关键修复: 为MySQL连接添加时区支持
@@ -189,8 +251,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # 会话安全配置
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
@@ -202,31 +264,76 @@ LOGOUT_REDIRECT_URL = '/login/'
 LOGIN_URL = '/login/'
 
 # 缓存配置
+# 在settings.py中注入以下代码块，使用内存缓存逃逸隧道：
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'unique-cache-key',
+        'TIMEOUT': 60*15,  # 15分钟原子衰变周期
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000,
+            'CULL_FREQUENCY': 3,  # 三振出局策略
+        },
     }
 }
 
+# 或者更优选择 - Redis
+# 'BACKEND': 'django_redis.cache.RedisCache',
+# 'LOCATION': 'redis://127.0.0.1:6379/1',
+
 # 邮件配置
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# 多级日志系统
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'filters': ['require_debug_true'],
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        },
+        'file': {
+            'level': 'WARNING',
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/django.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'recommendation': {  # 推荐系统专用日志
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
-# SQL日志(仅开发环境)
-if DEBUG:
-    LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'handlers': {
-            'console': {
-                'level': 'DEBUG',
-                'class': 'logging.StreamHandler',
-            }
-        },
-        'loggers': {
-            'django.db.backends': {
-                'handlers': ['console'],
-                'level': 'DEBUG',
-            },
-        },
-    }
+# 确保日志目录存在
+os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
+

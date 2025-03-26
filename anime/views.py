@@ -319,17 +319,54 @@ def anime_edit(request, slug):
 def anime_delete(request, slug):
     """
     动漫删除视图：删除现有动漫
-    - 需要用户登录且具有删除动漫的权限
-    - 支持确认页面
+    - 实现多维级联删除破解外键约束锁
+    - 采用原子事务保证数据完整性
+    - 量子同步清除所有依赖实体
     """
     anime = get_object_or_404(Anime, slug=slug)
 
     if request.method == 'POST':
         anime_title = anime.title
-        anime.delete()
-        messages.success(request, f'动漫《{anime_title}》已成功删除！')
-        return redirect('anime:anime_list')
 
+        # 导入事务管理模块
+        from django.db import transaction
+
+        # 导入依赖实体模型
+        from recommendation.models import UserRating, UserFavorite, UserComment, RecommendationCache
+        from users.models import UserBrowsing, UserPreference
+
+        try:
+            # 启动原子事务锁 - 确保完全成功或完全失败
+            with transaction.atomic():
+                # 0x01: 高能反应堆 - 逆向清除所有依赖实体
+                # 使用ORM批处理操作以达到最优性能
+                UserPreference.objects.filter(anime=anime).delete()
+                UserRating.objects.filter(anime=anime).delete()
+                UserFavorite.objects.filter(anime=anime).delete()
+                UserComment.objects.filter(anime=anime).delete()
+                UserBrowsing.objects.filter(anime=anime).delete()
+                RecommendationCache.objects.filter(anime=anime).delete()
+
+                # 0x02: 核心实体销毁
+                anime.delete()
+
+            # 0x03: 成功信号传递
+            messages.success(request, f'动漫《{anime_title}》已成功删除！')
+            return redirect('anime:anime_list')
+
+        except Exception as e:
+            # 0x04: 异常捕获矩阵
+            import traceback
+            error_details = traceback.format_exc()
+            messages.error(request, f'删除失败: {str(e)}')
+
+            # 调试模式下透出完整量子轨迹
+            if settings.DEBUG:
+                messages.error(request, f'错误详情: {error_details}')
+
+            return redirect('anime:anime_detail', slug=slug)
+
+    # GET请求渲染确认页面
     context = {
         'anime': anime,
     }
@@ -494,30 +531,85 @@ def anime_type_edit(request, slug):
 @permission_required('anime.delete_animetype', raise_exception=True)
 def anime_type_delete(request, slug):
     """
-    动漫类型删除视图：删除现有类型
-    - 需要用户登录且具有删除类型的权限
-    - 防止删除已被动漫使用的类型
+    动漫类型删除视图：实现递归级联删除
+    - 采用原子事务锁保证量子完整性
+    - 实现多维度数据依赖清除
+    - 高效批量操作优化
     """
     anime_type = get_object_or_404(AnimeType, slug=slug)
 
-    # 检查是否有动漫使用此类型
-    if anime_type.animes.exists():
-        messages.error(request, f'无法删除类型【{anime_type.name}】，因为有动漫正在使用此类型。')
-        return redirect('anime:anime_type_list')
-
     if request.method == 'POST':
         anime_type_name = anime_type.name
-        anime_type.delete()
-        messages.success(request, f'动漫类型【{anime_type_name}】已成功删除！')
-        return redirect('anime:anime_type_list')
+        anime_count = anime_type.animes.count()
 
+        # 导入事务管理和依赖实体
+        from django.db import transaction
+        from recommendation.models import UserRating, UserComment, UserFavorite, UserLike, RecommendationCache
+        from users.models import UserBrowsing, UserPreference
+
+        try:
+            # 启动原子事务 - 确保完全成功或完全回滚
+            with transaction.atomic():
+                if anime_count > 0:
+                    # 获取所有关联动漫ID - 使用列表强制执行查询
+                    anime_ids = list(anime_type.animes.values_list('id', flat=True))
+
+                    # 量子管道：多层次依赖实体清除 - 批量操作优化
+                    # 第一层：用户偏好和浏览历史
+                    UserPreference.objects.filter(anime_id__in=anime_ids).delete()
+                    UserBrowsing.objects.filter(anime_id__in=anime_ids).delete()
+
+                    # 第二层：社交互动数据
+                    # 获取关联评论ID
+                    comment_ids = list(UserComment.objects.filter(anime_id__in=anime_ids).values_list('id', flat=True))
+                    # 清除评论点赞
+                    if comment_ids:
+                        UserLike.objects.filter(comment_id__in=comment_ids).delete()
+                    # 清除评论本身
+                    UserComment.objects.filter(anime_id__in=anime_ids).delete()
+
+                    # 第三层：评分和收藏
+                    UserRating.objects.filter(anime_id__in=anime_ids).delete()
+                    UserFavorite.objects.filter(anime_id__in=anime_ids).delete()
+
+                    # 第四层：推荐系统缓存
+                    RecommendationCache.objects.filter(anime_id__in=anime_ids).delete()
+
+                    # 最后：删除所有动漫实体
+                    anime_type.animes.all().delete()
+
+                # 终极操作：类型实体湮灭
+                anime_type.delete()
+
+            # 事务完成，提供反馈
+            if anime_count > 0:
+                messages.success(
+                    request,
+                    f'动漫类型【{anime_type_name}】已量子湮灭，同时级联删除了 {anime_count} 部动漫及相关数据。'
+                )
+            else:
+                messages.success(request, f'动漫类型【{anime_type_name}】已删除！')
+
+            return redirect('anime:anime_type_list')
+
+        except Exception as e:
+            # 异常处理：提供故障诊断信息
+            import traceback
+            error_details = traceback.format_exc()
+            messages.error(request, f'删除失败: {str(e)}')
+
+            # 调试模式输出完整堆栈
+            if settings.DEBUG:
+                messages.error(request, f'错误矩阵: {error_details}')
+
+            return redirect('anime:anime_type_list')
+
+    # GET请求：渲染确认页面
     context = {
         'anime_type': anime_type,
     }
 
     return render(request, 'anime/anime_type_confirm_delete.html', context)
-
-
 # 添加异步评分和收藏处理视图
 @login_required
 @require_POST

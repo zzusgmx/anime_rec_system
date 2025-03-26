@@ -1,9 +1,10 @@
-<!-- templates/base.html -->
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="动漫推荐系统 - 基于Python+Django+MySQL的个性化动漫推荐平台">
+    <meta name="keywords" content="动漫,推荐,量子态,个性化,Django">
     <title>{% block title %}动漫推荐系统{% endblock %}</title>
 
     <!-- Bootstrap 5 CSS -->
@@ -17,11 +18,21 @@
 
     <style>
         /* 全局样式 */
+        :root {
+            --primary-color: #7952b3;
+            --primary-hover: #673ab7;
+            --secondary-color: #6c757d;
+            --accent-color: #e83e8c;
+            --light-bg: #f8f9fa;
+            --dark-bg: #343a40;
+        }
+
         body {
             min-height: 100vh;
             display: flex;
             flex-direction: column;
-            background-color: #f8f9fa;
+            background-color: var(--light-bg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
 
         /* 主要内容 */
@@ -32,7 +43,7 @@
 
         /* 导航栏样式 */
         .navbar {
-            background-color: #7952b3;
+            background-color: var(--primary-color);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
@@ -44,20 +55,38 @@
             color: rgba(255, 255, 255, 0.8);
         }
 
+        .navbar-nav .nav-link.active {
+            font-weight: 600;
+            position: relative;
+        }
+
+        .navbar-nav .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0.5rem;
+            right: 0.5rem;
+            height: 2px;
+            background-color: #fff;
+            border-radius: 1px;
+        }
+
         /* 卡片样式 */
         .card {
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             border: none;
-            transition: transform 0.3s;
+            transition: transform 0.3s, box-shadow 0.3s;
+            border-radius: 0.5rem;
         }
 
         .card:hover {
             transform: translateY(-5px);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
         }
 
         /* 页脚样式 */
         footer {
-            background-color: #343a40;
+            background-color: var(--dark-bg);
             color: #fff;
             padding: 1.5rem 0;
             margin-top: auto;
@@ -97,6 +126,7 @@
         .dropdown-menu {
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             border: none;
+            border-radius: 0.5rem;
         }
 
         .dropdown-item:hover {
@@ -110,23 +140,57 @@
 
         /* 按钮样式 */
         .btn-primary {
-            background-color: #7952b3;
-            border-color: #7952b3;
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
         }
 
         .btn-primary:hover {
-            background-color: #673ab7;
-            border-color: #673ab7;
+            background-color: var(--primary-hover);
+            border-color: var(--primary-hover);
         }
 
         .btn-outline-primary {
-            color: #7952b3;
-            border-color: #7952b3;
+            color: var(--primary-color);
+            border-color: var(--primary-color);
         }
 
         .btn-outline-primary:hover {
-            background-color: #7952b3;
-            border-color: #7952b3;
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        /* 自定义动画 */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        /* 加载动画 */
+        .loading-spinner {
+            display: inline-block;
+            width: 2rem;
+            height: 2rem;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--primary-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .messages-container {
+                left: 20px;
+                right: 20px;
+                max-width: none;
+            }
         }
     </style>
 </head>
@@ -134,28 +198,40 @@
     <!-- 导航栏 -->
     <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="/">
+            <a class="navbar-brand" href="/" title="动漫推荐系统首页">
                 <i class="fas fa-tv me-2"></i>动漫推荐系统
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="展开导航">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'anime:anime_list' %}">
+                        <a class="nav-link" href="{% url 'anime:anime_list' %}" title="浏览所有动漫">
                             <i class="fas fa-list me-1"></i>动漫列表
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'anime:anime_type_list' %}">
+                        <a class="nav-link" href="{% url 'anime:anime_type_list' %}" title="按类型浏览动漫">
                             <i class="fas fa-tags me-1"></i>类型分类
+                        </a>
+                    </li>
+                    <!-- 量子态推荐引擎入口点 -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'recommendation:recommendations' %}" title="获取个性化推荐">
+                            <i class="fas fa-magic me-1"></i>智能推荐
                         </a>
                     </li>
                     {% if user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="#">
+                        <a class="nav-link" href="#" title="查看您收藏的动漫">
                             <i class="fas fa-heart me-1"></i>我的收藏
+                        </a>
+                    </li>
+                    <!-- 个人推荐仪表板入口点 -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'recommendation:user_dashboard' %}" title="查看您的推荐中心">
+                            <i class="fas fa-chart-line me-1"></i>推荐中心
                         </a>
                     </li>
                     {% endif %}
@@ -163,26 +239,25 @@
                 <ul class="navbar-nav ms-auto">
                     {% if user.is_authenticated %}
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="用户菜单">
                                 <i class="fas fa-user-circle me-1"></i>{{ user.username }}
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-end">
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                                 <li>
-                                    <a class="dropdown-item" href="{% url 'profile' %}">
+                                    <a class="dropdown-item" href="{% url 'profile' %}" title="查看或编辑您的个人资料">
                                         <i class="fas fa-id-card me-2"></i>个人资料
                                     </a>
                                 </li>
                                 {% if user.is_staff %}
                                 <li>
-                                    <a class="dropdown-item" href="{% url 'admin:index' %}">
+                                    <a class="dropdown-item" href="{% url 'admin:index' %}" title="进入管理后台">
                                         <i class="fas fa-cog me-2"></i>管理后台
                                     </a>
                                 </li>
                                 {% endif %}
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
-                                    <!-- 修改后的退出登录链接，使用GET请求 -->
-                                    <a class="dropdown-item" href="{% url 'logout' %}">
+                                    <a class="dropdown-item" href="{% url 'logout' %}" title="退出登录">
                                         <i class="fas fa-sign-out-alt me-2"></i>退出登录
                                     </a>
                                 </li>
@@ -190,12 +265,12 @@
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'login' %}">
+                            <a class="nav-link" href="{% url 'login' %}" title="登录您的账户">
                                 <i class="fas fa-sign-in-alt me-1"></i>登录
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'register' %}">
+                            <a class="nav-link" href="{% url 'register' %}" title="创建新账户">
                                 <i class="fas fa-user-plus me-1"></i>注册
                             </a>
                         </li>
@@ -211,7 +286,7 @@
         {% for message in messages %}
             <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
                 {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="关闭"></button>
             </div>
         {% endfor %}
     </div>
@@ -230,7 +305,7 @@
     {% endif %}
 
     <!-- 主要内容 -->
-    <div class="main-content">
+    <div class="main-content fade-in">
         <div class="container">
             {% block content %}{% endblock %}
         </div>
@@ -245,6 +320,8 @@
                     <i class="fas fa-code me-1"></i> 使用 Django {{ django_version }} 构建
                     <span class="mx-2">|</span>
                     <i class="fas fa-heart me-1"></i> 热爱动漫
+                    <span class="mx-2">|</span>
+                    <i class="fas fa-brain me-1"></i> 量子态推荐引擎
                 </small>
             </div>
         </div>
@@ -264,7 +341,7 @@
             const currentPath = window.location.pathname;
             document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
                 const href = link.getAttribute('href');
-                if (href === currentPath || currentPath.startsWith(href) && href !== '/') {
+                if (href === currentPath || (currentPath.startsWith(href) && href !== '/')) {
                     link.classList.add('active');
                 }
             });
@@ -274,7 +351,72 @@
             tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
+
+            // 处理图片加载错误
+            document.querySelectorAll('img').forEach(img => {
+                img.addEventListener('error', function() {
+                    // 设置默认占位图
+                    const title = this.alt || '动漫';
+                    this.src = `https://via.placeholder.com/400x250?text=${encodeURIComponent(title)}`;
+
+                    // 添加失败标记类
+                    this.classList.add('img-load-failed');
+                });
+            });
+
+            // 平滑滚动到锚点
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function(e) {
+                    const targetId = this.getAttribute('href');
+                    if (targetId !== '#' && document.querySelector(targetId)) {
+                        e.preventDefault();
+                        document.querySelector(targetId).scrollIntoView({
+                            behavior: 'smooth'
+                        });
+                    }
+                });
+            });
+
+            // 返回顶部按钮 (如果需要)
+            const scrollToTopBtn = document.getElementById('scrollToTop');
+            if (scrollToTopBtn) {
+                window.addEventListener('scroll', function() {
+                    if (window.pageYOffset > 300) {
+                        scrollToTopBtn.classList.add('show');
+                    } else {
+                        scrollToTopBtn.classList.remove('show');
+                    }
+                });
+
+                scrollToTopBtn.addEventListener('click', function() {
+                    window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                    });
+                });
+            }
         });
+
+        // 防抖函数 - 用于优化性能
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // 节流函数 - 用于限制函数调用频率
+        function throttle(func, limit) {
+            let inThrottle;
+            return function(...args) {
+                if (!inThrottle) {
+                    func.apply(this, args);
+                    inThrottle = true;
+                    setTimeout(() => inThrottle = false, limit);
+                }
+            };
+        }
     </script>
 </body>
 </html>

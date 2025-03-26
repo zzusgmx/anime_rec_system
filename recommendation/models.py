@@ -25,6 +25,37 @@ class UserRating(TimeStampedModel):
     # 评分操作时间戳
     timestamp = models.DateTimeField(auto_now_add=True)
 
+    class EncodingFixMixin:
+        """编码修复混入类 - 在保存前修复编码问题"""
+
+        def save(self, *args, **kwargs):
+            """重写保存方法，在保存前修复编码"""
+            # 执行字符字段的编码修复
+            for field in self._meta.fields:
+                if isinstance(field, models.CharField) or isinstance(field, models.TextField):
+                    value = getattr(self, field.name)
+                    if value and isinstance(value, str):
+                        # 应用编码修复
+                        fixed_value = self._fix_encoding(value)
+                        setattr(self, field.name, fixed_value)
+
+            # 调用原始保存方法
+            super().save(*args, **kwargs)
+
+        def _fix_encoding(self, text):
+            """编码修复函数"""
+            if not text:
+                return text
+
+            # 尝试修复双重编码问题
+            try:
+                # 将字符串反向编码为latin1字节数组
+                temp_bytes = text.encode('latin1')
+                # 尝试作为UTF-8解析
+                return temp_bytes.decode('utf-8', errors='replace')
+            except:
+                return text
+
     class Meta:
         verbose_name = "用户评分"
         verbose_name_plural = "用户评分列表"
@@ -183,3 +214,5 @@ class RecommendationCache(TimeStampedModel):
 
     def __str__(self):
         return f"{self.user.username} - {self.anime.title} ({self.rec_type})"
+
+    expires_at = models.DateTimeField(verbose_name="过期时间")

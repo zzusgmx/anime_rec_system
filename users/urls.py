@@ -1,4 +1,4 @@
-# users/urls.py
+# users/urls.py 中的登出URL配置
 
 from django.urls import path
 from . import views
@@ -7,7 +7,7 @@ from django.views.generic import TemplateView
 urlpatterns = [
     # 基于表单的认证视图 - 用于Web界面
     path('login/', views.CustomLoginView.as_view(), name='login'),
-    path('logout/', views.custom_logout_view, name='logout'),  # 修改为使用函数视图
+    path('logout/', views.custom_logout_view, name='logout'),  # 确保函数名与views.py中定义一致
     path('register/', views.CustomRegisterView.as_view(), name='register'),
     path('profile/', views.profile_view, name='profile'),
     # JWT测试页面

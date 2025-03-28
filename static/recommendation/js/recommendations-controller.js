@@ -1,10 +1,9 @@
-
-// Fix 3: Update recommendations-controller.js
-// Improved event handling and debugging
+// 量子态推荐控制器 - 完全重构版
+// 增强事件处理、错误恢复和初始化逻辑
 
 document.addEventListener('DOMContentLoaded', function() {
   // 检查DOM环境
-  console.log("DOM加载完成，初始化推荐控制器");
+  console.log("DOM加载完成，初始化量子态推荐控制器");
   
   // 先删除可能已存在的重复监听器
   const clearExistingHandlers = () => {
@@ -24,13 +23,21 @@ document.addEventListener('DOMContentLoaded', function() {
       event.stopPropagation(); // 防止事件冒泡
       
       const strategy = this.dataset.strategy;
-      console.log(`选择策略: ${strategy}`);
+      console.log(`选择策略: ${strategy || 'hybrid'}`);
       
       if (typeof window.recommendationUI !== 'undefined') {
-        window.recommendationUI.loadRecommendations(strategy);
+        window.recommendationUI.loadRecommendations(strategy || 'hybrid');
       } else {
         console.error('推荐UI组件未初始化');
-        alert('推荐组件未正确加载，请刷新页面');
+        
+        // 尝试创建UI组件
+        try {
+          window.recommendationUI = new RecommendationUI('recommendationContainer');
+          window.recommendationUI.loadRecommendations(strategy || 'hybrid');
+        } catch (e) {
+          console.error('创建UI组件失败:', e);
+          alert('推荐组件未正确加载，请刷新页面');
+        }
       }
     });
   });
@@ -106,6 +113,38 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // 启动初始化
+  // 添加直接API测试功能（开发人员工具）
+  const testApiBtn = document.getElementById('testApiBtn');
+  if (testApiBtn) {
+    testApiBtn.addEventListener('click', function() {
+      const strategy = getStrategyFromUrl();
+      const apiUrl = `/recommendations/api/recommendations/?strategy=${strategy}`;
+      
+      const resultContainer = document.getElementById('apiResult');
+      if (resultContainer) {
+        resultContainer.innerHTML = '<div class="spinner-border text-primary" role="status"></div> 请求中...';
+        
+        fetch(apiUrl)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`API错误: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+          })
+          .then(data => {
+            resultContainer.innerHTML = `<pre class="bg-light p-3 rounded">${JSON.stringify(data, null, 2)}</pre>`;
+          })
+          .catch(error => {
+            resultContainer.innerHTML = `
+              <div class="alert alert-danger">
+                ${error.message}
+              </div>
+            `;
+          });
+      }
+    });
+  }
+
+  // 延迟启动初始化，确保其他脚本已加载
   setTimeout(initRecommendationSystem, 100);
 });

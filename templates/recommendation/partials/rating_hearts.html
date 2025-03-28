@@ -1,0 +1,14 @@
+{% comment %}
+  心形评分组件
+  用法: {% rating_hearts_display anime.rating_avg %}
+{% endcomment %}
+
+<div class="rating-hearts {% if interactive %}interactive{% endif %}" {% if element_id %}id="{{ element_id }}"{% endif %}>
+  {% for i in range %}
+    {% if i <= rating %}
+      <i class="fas fa-heart heart active" {% if interactive %}data-rating="{{ i }}"{% endif %}></i>
+    {% else %}
+      <i class="far fa-heart heart" {% if interactive %}data-rating="{{ i }}"{% endif %}></i>
+    {% endif %}
+  {% endfor %}
+</div>

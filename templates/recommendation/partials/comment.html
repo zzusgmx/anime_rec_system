@@ -1,0 +1,55 @@
+{% comment %}
+  评论组件模板
+  用法: {% render_comment comment %}
+{% endcomment %}
+
+<div class="comment-item">
+    <div class="comment-header">
+        <div class="comment-avatar">
+            {% if comment.user.profile.avatar %}
+                <img src="{{ comment.user.profile.avatar.url }}" alt="{{ comment.user.username }}" class="rounded-circle">
+            {% else %}
+                <img src="/static/images/default-avatar.jpg" alt="{{ comment.user.username }}" class="rounded-circle">
+            {% endif %}
+        </div>
+        <div class="comment-info">
+            <h5 class="comment-author">{{ comment.user.username }}</h5>
+            <span class="comment-date">{{ comment.timestamp|date:"Y-m-d H:i" }}</span>
+        </div>
+        <div class="comment-actions">
+            <button class="btn btn-sm comment-like-btn {% if user_liked %}active{% endif %}" 
+                    data-comment-id="{{ comment.id }}">
+                <i class="{% if user_liked %}fas{% else %}far{% endif %} fa-heart"></i>
+                <span class="like-count">{{ comment.like_count }}</span>
+            </button>
+            
+            {% if user.is_authenticated and comment.user == user %}
+            <div class="dropdown">
+                <button class="btn btn-sm" data-bs-toggle="dropdown">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item edit-comment" href="#" data-comment-id="{{ comment.id }}">
+                        <i class="fas fa-edit me-1"></i> 编辑
+                    </a></li>
+                    <li><a class="dropdown-item delete-comment" href="#" data-comment-id="{{ comment.id }}">
+                        <i class="fas fa-trash-alt me-1"></i> 删除
+                    </a></li>
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="comment-content" id="comment-content-{{ comment.id }}">
+        {{ comment.content|linebreaks }}
+    </div>
+    
+    <div class="comment-edit-form d-none" id="comment-edit-form-{{ comment.id }}">
+        <textarea class="form-control edit-comment-content">{{ comment.content }}</textarea>
+        <div class="mt-2">
+            <button class="btn btn-sm btn-primary save-edit" data-comment-id="{{ comment.id }}">保存</button>
+            <button class="btn btn-sm btn-secondary cancel-edit" data-comment-id="{{ comment.id }}">取消</button>
+        </div>
+    </div>
+</div>

@@ -18,6 +18,14 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.template.loader import render_to_string
 from django.core.mail import EmailMessage
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.views.decorators.http import require_http_methods  # 已经导入
+
+
+from .forms import (
+    UserLoginForm, UserRegisterForm, UserPasswordResetForm,
+    UserSetPasswordForm, ProfileUpdateForm
+)
+from .models import Profile
 
 from .forms import (
     UserLoginForm, UserRegisterForm, UserPasswordResetForm,
@@ -27,10 +35,7 @@ from .models import Profile
 
 
 class CustomLoginView(LoginView):
-    """
-    自定义登录视图
-    使用自定义表单并处理'记住我'功能
-    """
+    """自定义登录视图"""
     form_class = UserLoginForm
     template_name = 'users/login.html'
 
@@ -48,10 +53,11 @@ class CustomLoginView(LoginView):
         messages.success(self.request, f'欢迎回来, {user.username}!')
         return super().form_valid(form)
 
-
+@require_http_methods(["GET", "POST"])
 def custom_logout_view(request):
     """
     处理GET和POST请求的登出视图
+    支持从管理后台和普通界面退出登录
     """
     # 清除JWT令牌
     if 'jwt_refresh' in request.session:
@@ -59,12 +65,21 @@ def custom_logout_view(request):
     if 'jwt_access' in request.session:
         del request.session['jwt_access']
 
+    # 获取来源信息（在登出前）
+    referer = request.META.get('HTTP_REFERER', '')
+    is_from_admin = '/admin/' in referer
+
     # 登出用户
     logout(request)
 
-    messages.info(request, '您已成功退出登录')
-    return redirect('login')
-
+    # 根据来源决定重定向
+    if is_from_admin:
+        # 从管理界面退出，重定向到管理首页（而不是login）
+        return redirect('/admin/')
+    else:
+        # 从普通界面退出
+        messages.info(request, '您已成功退出登录')
+        return redirect('login')
 
 class CustomRegisterView(CreateView):
     """

@@ -1,10 +1,13 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load recommendation_extras %}
+{% load interaction_tags %}
 
 {% block title %}{{ anime.title }} - 动漫推荐系统{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'anime/css/anime_detail.css' %}">
+<link rel="stylesheet" href="{% static 'css/interaction.css' %}">
 <style>
     /* 动漫详情页样式 */
     .anime-header {
@@ -86,6 +89,8 @@
 {% endblock %}
 
 {% block content %}
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
 <!-- 动漫头部区域 -->
 <div class="anime-header" id="animeHeader" data-cover-url="{% if anime.cover %}{{ anime.cover.url }}{% endif %}">
     <div class="container">
@@ -98,23 +103,27 @@
                     <img src="{% static 'images/no-image.jpg' %}" alt="无图片" class="anime-cover">
                 {% endif %}
 
-                <!-- 评分展示 -->
-                <div class="mt-3">
-                    <div class="rating-stars mb-1">
+                <!-- 心形评分展示 -->
+                <div class="mt-3 rating-display">
+                    <div class="rating-hearts" id="ratingSummary">
                         {% if anime.rating_avg %}
                             {% for i in "12345"|make_list %}
                                 {% if forloop.counter <= anime.rating_avg|floatformat:"0" %}
-                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-heart heart active"></i>
                                 {% else %}
-                                    <i class="far fa-star"></i>
+                                    <i class="far fa-heart heart"></i>
                                 {% endif %}
                             {% endfor %}
-                            <span class="ms-2 text-white">{{ anime.rating_avg|floatformat:1 }}/5.0</span>
                         {% else %}
-                            <span class="text-white">暂无评分</span>
+                            {% for i in "12345"|make_list %}
+                                <i class="far fa-heart heart"></i>
+                            {% endfor %}
                         {% endif %}
                     </div>
-                    <small class="text-white">{{ anime.rating_count }} 人已评分</small>
+                    <span class="rating-value ms-2 text-white">
+                        {{ anime.rating_avg|default:"0"|floatformat:1 }}/5.0
+                    </span>
+                    <small class="text-white ms-2">({{ anime.rating_count }} 人已评分)</small>
                 </div>
 
                 <!-- 管理员CRUD操作按钮 -->
@@ -170,13 +179,13 @@
                 <!-- 互动按钮 -->
                 <div class="interaction-buttons">
                     <!-- 评分按钮 -->
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#ratingModal">
-                        <i class="fas fa-star me-2"></i>评分
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#heartRatingModal">
+                        <i class="fas fa-heart me-2"></i>评分
                     </button>
 
                     <!-- 收藏按钮 -->
-                    <button id="favoriteButton" class="btn btn-outline-danger {% if user_data.has_favorited %}active{% endif %}">
-                        <i class="{% if user_data.has_favorited %}fas{% else %}far{% endif %} fa-heart me-2"></i>
+                    <button id="favoriteButton" class="btn btn-outline-danger favorite-btn {% if user_data.has_favorited %}active{% endif %}">
+                        <i class="{% if user_data.has_favorited %}fas{% else %}far{% endif %} fa-heart me-2 favorite-icon"></i>
                         {% if user_data.has_favorited %}已收藏{% else %}收藏{% endif %}
                     </button>
 
@@ -184,6 +193,11 @@
                     <button id="commentButton" class="btn btn-outline-secondary">
                         <i class="far fa-comment me-2"></i>评论
                     </button>
+
+                    <!-- 浏览历史按钮 -->
+                    <a href="{% url 'recommendation:browsing_history' %}" class="btn btn-outline-info">
+                        <i class="fas fa-history me-2"></i>浏览历史
+                    </a>
                 </div>
 
                 <!-- 热门度进度条 -->
@@ -238,109 +252,89 @@
     </div>
     {% endif %}
 
-    <!-- 最新评论 -->
-    {% if recent_comments %}
-    <div class="mt-5">
-        <h2 class="section-title mb-4">最新评论</h2>
-        <div class="comments-section">
-            {% for comment in recent_comments %}
-            <div class="card mb-3">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div>
-                            <strong>{{ comment.user.username }}</strong>
-                            <span class="text-muted ms-2">{{ comment.timestamp|date:"Y-m-d H:i" }}</span>
-                        </div>
-                        <span class="badge bg-secondary">
-                            <i class="fas fa-thumbs-up me-1"></i>{{ comment.like_count }}
-                        </span>
-                    </div>
-                    <p class="card-text">{{ comment.content }}</p>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
+    <!-- 评论区 -->
+    <div class="mt-5" id="commentsSection">
+        <h2 class="section-title mb-4">评论区</h2>
 
+        <!-- 评论表单 -->
         {% if user.is_authenticated %}
-        <button id="mainCommentButton" class="btn btn-outline-primary mt-3">
-            <i class="far fa-comment me-2"></i>发表评论
-        </button>
+        <div class="comment-form" id="commentFormContainer">
+            <div class="comment-form-header">
+                <h5>发表评论</h5>
+                <small class="text-muted">分享您对《{{ anime.title }}》的看法</small>
+            </div>
+            <div class="mb-3">
+                <textarea class="form-control" id="commentContent" rows="4" placeholder="请输入您的评论..."></textarea>
+            </div>
+            <div class="d-flex justify-content-end">
+                <button id="submitCommentBtn" class="btn btn-primary">
+                    <i class="far fa-paper-plane me-1"></i> 发表评论
+                </button>
+            </div>
+        </div>
         {% else %}
-        <div class="alert alert-secondary mt-3" role="alert">
-            <i class="fas fa-info-circle me-2"></i>登录后才能发表评论
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            请<a href="{% url 'login' %}?next={{ request.path }}" class="alert-link">登录</a>后发表评论
         </div>
         {% endif %}
-    </div>
-    {% else %}
-    <div class="mt-5">
-        <div class="alert alert-light" role="alert">
-            <div class="text-center py-3">
-                <i class="far fa-comment fa-3x mb-3 text-muted"></i>
-                <h4>暂无评论</h4>
-                <p class="text-muted">成为第一个评论这部动漫的人吧！</p>
 
-                {% if user.is_authenticated %}
-                <button id="alternateCommentButton" class="btn btn-outline-primary mt-2">
-                    <i class="far fa-comment me-2"></i>发表评论
-                </button>
-                {% else %}
-                <a href="{% url 'login' %}?next={{ request.path }}" class="btn btn-outline-primary mt-2">
-                    <i class="fas fa-sign-in-alt me-2"></i>登录后评论
-                </a>
+        <!-- 评论列表 -->
+        <div class="comments-section mt-4" id="commentsList">
+            {% if recent_comments %}
+                {% for comment in recent_comments %}
+                    {% render_comment comment %}
+                {% endfor %}
+
+                {% if recent_comments.count >= 5 %}
+                <div class="text-center mt-4">
+                    <button id="loadMoreComments" class="btn btn-outline-secondary" data-page="2">
+                        <i class="fas fa-sync me-1"></i> 加载更多评论
+                    </button>
+                </div>
                 {% endif %}
-            </div>
+            {% else %}
+                <div class="empty-state text-center py-5">
+                    <i class="far fa-comment-dots fa-3x mb-3 text-muted"></i>
+                    <h4>暂无评论</h4>
+                    <p class="text-muted">成为第一个评论这部动漫的人吧！</p>
+                </div>
+            {% endif %}
         </div>
     </div>
-    {% endif %}
 </div>
 
-<!-- 评分模态框 -->
-<div class="modal fade" id="ratingModal" tabindex="-1" aria-labelledby="ratingModalLabel" aria-hidden="true">
+<!-- 心形评分模态框 -->
+<div class="modal fade" id="heartRatingModal" tabindex="-1" aria-labelledby="heartRatingModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="ratingModalLabel">为《{{ anime.title }}》评分</h5>
+                <h5 class="modal-title" id="heartRatingModalLabel">为《{{ anime.title }}》评分</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="text-center mb-3">
-                    <div class="rating-stars-input mb-2">
-                        <i class="far fa-star rating-star" data-rating="1"></i>
-                        <i class="far fa-star rating-star" data-rating="2"></i>
-                        <i class="far fa-star rating-star" data-rating="3"></i>
-                        <i class="far fa-star rating-star" data-rating="4"></i>
-                        <i class="far fa-star rating-star" data-rating="5"></i>
+                    <div class="rating-hearts-input mb-2" id="ratingHeartsInput">
+                        <i class="far fa-heart heart" data-rating="1"></i>
+                        <i class="far fa-heart heart" data-rating="2"></i>
+                        <i class="far fa-heart heart" data-rating="3"></i>
+                        <i class="far fa-heart heart" data-rating="4"></i>
+                        <i class="far fa-heart heart" data-rating="5"></i>
                     </div>
                     <div>
-                        您选择的评分: <span id="ratingValue">0</span> 星
+                        您选择的评分: <span id="ratingValue">0</span> 颗心
+                    </div>
+                </div>
+                <div class="rating-feedback mt-3 d-none" id="ratingFeedback">
+                    <div class="text-center">
+                        <div class="mb-2" id="ratingEmoji"></div>
+                        <div id="ratingMessage"></div>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" id="submitRating">提交评分</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- 评论模态框 -->
-<div class="modal fade" id="commentModal" tabindex="-1" aria-labelledby="commentModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="commentModalLabel">发表评论</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label for="commentContent" class="form-label">评论内容</label>
-                    <textarea class="form-control" id="commentContent" rows="5" placeholder="分享您对这部动漫的看法..."></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" id="submitComment">发表评论</button>
+                <button type="button" class="btn btn-danger" id="submitHeartRating">提交评分</button>
             </div>
         </div>
     </div>
@@ -377,17 +371,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 设置初始评分状态
     if (currentRating > 0) {
-        updateStars(currentRating);
+        updateHearts(currentRating, 'ratingHeartsInput');
         $('#ratingValue').text(currentRating);
     }
 
     // 设置初始收藏状态
     if (isFavorited) {
-        $('#favoriteButton').addClass('active').html('<i class="fas fa-heart me-2"></i>已收藏');
+        $('#favoriteButton').addClass('active').html('<i class="fas fa-heart me-2 favorite-icon"></i>已收藏');
     }
 
-    // 评分星星点击事件
-    $('.rating-star').click(function() {
+    // 心形评分点击事件
+    $('#ratingHeartsInput .heart').on('click', function() {
         if (!isLoggedIn) {
             showLoginAlert();
             return;
@@ -396,11 +390,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const rating = parseInt($(this).data('rating'));
         currentRating = rating;
         $('#ratingValue').text(rating);
-        updateStars(rating);
+        updateHearts(rating, 'ratingHeartsInput');
+
+        // 显示评分反馈
+        showRatingFeedback(rating);
     });
 
-    // 提交评分
-    $('#submitRating').click(function() {
+    // 提交心形评分
+    $('#submitHeartRating').click(function() {
         if (!isLoggedIn) {
             showLoginAlert();
             return;
@@ -412,22 +409,36 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // 发送AJAX请求
-        $.ajax({
-            url: `/anime/rate/${animeId}/`,
-            type: 'POST',
-            data: {
-                'rating': currentRating,
-                'csrfmiddlewaretoken': '{{ csrf_token }}'
+        fetch(`/recommendations/heart-rating/${animeId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
             },
-            success: function(response) {
-                $('#ratingModal').modal('hide');
-                showToast('评分成功', `您给《{{ anime.title }}》的评分是 ${currentRating} 星！`);
-                // 可以选择刷新页面以显示更新的评分
-                setTimeout(() => location.reload(), 1500);
-            },
-            error: function(xhr) {
-                alert('评分失败: ' + (xhr.responseJSON ? xhr.responseJSON.message : '请稍后再试'));
+            body: JSON.stringify({ rating: currentRating })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 显示成功消息
+                showToast('评分成功', `您给《{{ anime.title }}》的评分是 ${currentRating} 颗心！`);
+
+                // 更新评分显示
+                updateHearts(currentRating, 'ratingSummary');
+                $('.rating-value').text(`${data.new_avg.toFixed(1)}/5.0`);
+
+                // 关闭模态框
+                $('#heartRatingModal').modal('hide');
+
+                // 添加心跳动画效果
+                addHeartbeatAnimation('ratingSummary');
+            } else {
+                showToast('错误', data.error || '评分失败，请稍后再试');
             }
+        })
+        .catch(error => {
+            console.error('评分提交错误:', error);
+            showToast('错误', '服务器错误，请稍后再试');
         });
     });
 
@@ -443,50 +454,301 @@ document.addEventListener('DOMContentLoaded', function() {
             url: `/anime/favorite/${animeId}/`,
             type: 'POST',
             data: {
-                'csrfmiddlewaretoken': '{{ csrf_token }}'
+                'csrfmiddlewaretoken': getCsrfToken()
             },
             success: function(response) {
                 const $btn = $('#favoriteButton');
                 if (response.action === 'added') {
-                    $btn.addClass('active').html('<i class="fas fa-heart me-2"></i>已收藏');
+                    $btn.addClass('active').html('<i class="fas fa-heart me-2 favorite-icon"></i>已收藏');
                     showToast('收藏成功', response.message);
                 } else {
-                    $btn.removeClass('active').html('<i class="far fa-heart me-2"></i>收藏');
+                    $btn.removeClass('active').html('<i class="far fa-heart me-2 favorite-icon"></i>收藏');
                     showToast('取消收藏', response.message);
                 }
             },
             error: function() {
-                alert('操作失败，请稍后再试');
+                showToast('错误', '操作失败，请稍后再试');
             }
         });
     });
 
-    // 评论按钮点击事件 - 更新后的选择器包含所有评论按钮
-    $('#commentButton, #mainCommentButton, #alternateCommentButton').click(function() {
-        if (!isLoggedIn) {
-            showLoginAlert();
-            return;
-        }
+    // 评论按钮滚动到评论区
+    $('#commentButton').click(function() {
+        // 滚动到评论表单
+        $('html, body').animate({
+            scrollTop: $('#commentFormContainer').offset().top - 100
+        }, 500);
 
-        $('#commentModal').modal('show');
+        // 聚焦评论文本框
+        if (isLoggedIn) {
+            $('#commentContent').focus();
+        }
     });
 
-    // 评论提交
-    $('#submitComment').click(function() {
+    // 提交评论
+    $('#submitCommentBtn').click(function() {
         if (!isLoggedIn) {
             showLoginAlert();
             return;
         }
 
-        const content = $('#commentContent').val();
-        if (!content.trim()) {
-            alert('评论内容不能为空');
+        const content = $('#commentContent').val().trim();
+        if (!content) {
+            showToast('错误', '评论内容不能为空');
             return;
         }
 
-        // 此功能将在后续实现
-        alert('评论功能将在后续开发中实现，感谢您的参与！');
-        $('#commentModal').modal('hide');
+        // 显示提交中状态
+        const $btn = $(this);
+        const originalHtml = $btn.html();
+        $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> 提交中...').prop('disabled', true);
+
+        // 发送评论请求
+        fetch(`/recommendations/comments/add/${animeId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ content: content })
+        })
+        .then(response => response.json())
+        .then(data => {
+            // 恢复按钮状态
+            $btn.html(originalHtml).prop('disabled', false);
+
+            if (data.success) {
+                // 清空评论框
+                $('#commentContent').val('');
+
+                // 创建新评论HTML
+                const commentHtml = createCommentHtml(data.comment);
+
+                // 检查是否有空评论状态
+                if ($('#commentsList .empty-state').length > 0) {
+                    $('#commentsList').html(commentHtml);
+                } else {
+                    // 将新评论添加到评论列表顶部
+                    $('#commentsList').prepend(commentHtml);
+                }
+
+                // 显示成功消息
+                showToast('成功', '评论发表成功');
+
+                // 添加新评论高亮动画
+                const $newComment = $('#commentsList .comment-item').first();
+                $newComment.addClass('highlight-animation');
+                setTimeout(() => $newComment.removeClass('highlight-animation'), 2000);
+            } else {
+                showToast('错误', data.error || '评论发表失败，请稍后再试');
+            }
+        })
+        .catch(error => {
+            console.error('评论提交错误:', error);
+            $btn.html(originalHtml).prop('disabled', false);
+            showToast('错误', '服务器错误，请稍后再试');
+        });
+    });
+
+    // 加载更多评论
+    $('#loadMoreComments').click(function() {
+        const $btn = $(this);
+        const page = parseInt($btn.data('page'));
+
+        // 显示加载状态
+        $btn.html('<i class="fas fa-spinner fa-spin me-1"></i> 加载中...').prop('disabled', true);
+
+        // 加载更多评论
+        $.ajax({
+            url: window.location.pathname + 'comments/',
+            type: 'GET',
+            data: { page: page },
+            success: function(response) {
+                // 添加新评论到列表
+                $('#commentsList').append(response.html);
+
+                // 更新页码或隐藏按钮
+                if (response.has_next) {
+                    $btn.data('page', page + 1).html('<i class="fas fa-sync me-1"></i> 加载更多评论').prop('disabled', false);
+                } else {
+                    $btn.remove(); // 没有更多评论了，移除按钮
+                }
+            },
+            error: function() {
+                $btn.html('<i class="fas fa-sync me-1"></i> 加载更多评论').prop('disabled', false);
+                showToast('错误', '加载评论失败，请稍后再试');
+            }
+        });
+    });
+
+    // 委托处理评论点赞事件
+    $(document).on('click', '.comment-like-btn', function() {
+        if (!isLoggedIn) {
+            showLoginAlert();
+            return;
+        }
+
+        const $btn = $(this);
+        const commentId = $btn.data('comment-id');
+
+        // 发送点赞请求
+        fetch(`/recommendations/comments/like/${commentId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 更新点赞计数和图标
+                $btn.find('.like-count').text(data.like_count);
+
+                if (data.action === 'added') {
+                    $btn.addClass('active');
+                    $btn.find('i').removeClass('far').addClass('fas');
+                } else {
+                    $btn.removeClass('active');
+                    $btn.find('i').removeClass('fas').addClass('far');
+                }
+            } else {
+                showToast('错误', data.error || '操作失败，请稍后再试');
+            }
+        })
+        .catch(error => {
+            console.error('点赞操作错误:', error);
+            showToast('错误', '服务器错误，请稍后再试');
+        });
+    });
+
+    // 委托处理评论编辑点击事件
+    $(document).on('click', '.edit-comment', function(e) {
+        e.preventDefault();
+
+        const commentId = $(this).data('comment-id');
+        const $commentContent = $(`#comment-content-${commentId}`);
+        const $editForm = $(`#comment-edit-form-${commentId}`);
+
+        // 显示编辑表单，隐藏内容
+        $commentContent.addClass('d-none');
+        $editForm.removeClass('d-none');
+
+        // 聚焦文本框
+        $editForm.find('textarea').focus();
+    });
+
+    // 委托处理评论编辑取消事件
+    $(document).on('click', '.cancel-edit', function() {
+        const commentId = $(this).data('comment-id');
+        const $commentContent = $(`#comment-content-${commentId}`);
+        const $editForm = $(`#comment-edit-form-${commentId}`);
+
+        // 隐藏编辑表单，显示内容
+        $editForm.addClass('d-none');
+        $commentContent.removeClass('d-none');
+    });
+
+    // 委托处理评论编辑保存事件
+    $(document).on('click', '.save-edit', function() {
+        const $btn = $(this);
+        const commentId = $btn.data('comment-id');
+        const $editForm = $(`#comment-edit-form-${commentId}`);
+        const $commentContent = $(`#comment-content-${commentId}`);
+        const content = $editForm.find('textarea').val().trim();
+
+        if (!content) {
+            showToast('错误', '评论内容不能为空');
+            return;
+        }
+
+        // 显示保存中状态
+        const originalHtml = $btn.html();
+        $btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
+
+        // 发送更新请求
+        fetch(`/recommendations/comments/update/${commentId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ content: content })
+        })
+        .then(response => response.json())
+        .then(data => {
+            // 恢复按钮状态
+            $btn.html(originalHtml).prop('disabled', false);
+
+            if (data.success) {
+                // 更新显示的内容
+                $commentContent.html(data.content.replace(/\n/g, '<br>'));
+
+                // 隐藏编辑表单，显示内容
+                $editForm.addClass('d-none');
+                $commentContent.removeClass('d-none');
+
+                // 显示成功消息
+                showToast('成功', '评论已更新');
+            } else {
+                showToast('错误', data.error || '更新失败，请稍后再试');
+            }
+        })
+        .catch(error => {
+            console.error('评论更新错误:', error);
+            $btn.html(originalHtml).prop('disabled', false);
+            showToast('错误', '服务器错误，请稍后再试');
+        });
+    });
+
+    // 委托处理评论删除事件
+    $(document).on('click', '.delete-comment', function(e) {
+        e.preventDefault();
+
+        if (!confirm('确定要删除这条评论吗？此操作无法撤销。')) {
+            return;
+        }
+
+        const commentId = $(this).data('comment-id');
+        const $commentItem = $(this).closest('.comment-item');
+
+        // 发送删除请求
+        fetch(`/recommendations/comments/delete/${commentId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 添加淡出动画
+                $commentItem.fadeOut(300, function() {
+                    $(this).remove();
+
+                    // 如果没有更多评论，显示空状态
+                    if ($('#commentsList .comment-item').length === 0) {
+                        $('#commentsList').html(`
+                            <div class="empty-state text-center py-5">
+                                <i class="far fa-comment-dots fa-3x mb-3 text-muted"></i>
+                                <h4>暂无评论</h4>
+                                <p class="text-muted">成为第一个评论这部动漫的人吧！</p>
+                            </div>
+                        `);
+                    }
+                });
+
+                // 显示成功消息
+                showToast('成功', '评论已删除');
+            } else {
+                showToast('错误', data.error || '删除失败，请稍后再试');
+            }
+        })
+        .catch(error => {
+            console.error('评论删除错误:', error);
+            showToast('错误', '服务器错误，请稍后再试');
+        });
     });
 
     // 设置热门度进度条宽度
@@ -494,27 +756,137 @@ document.addEventListener('DOMContentLoaded', function() {
         const popularityBar = document.querySelector('.progress-bar');
         if (popularityBar) {
             const popularityValue = parseFloat(popularityBar.getAttribute('aria-valuenow')) || 0;
-            popularityBar.style.width = (popularityValue * 100) + '%';
+            popularityBar.style.width = (popularityValue * 10) + '%';
         }
     }, 500);
 });
 
-// 更新星星显示
-function updateStars(rating) {
-    $('.rating-star').each(function() {
-        const starRating = parseInt($(this).data('rating'));
-        if (starRating <= rating) {
-            $(this).removeClass('far').addClass('fas');
+// 更新心形评分显示
+function updateHearts(rating, containerId) {
+    $(`#${containerId} .heart`).each(function(index) {
+        if (index < rating) {
+            $(this).removeClass('far').addClass('fas active');
         } else {
-            $(this).removeClass('fas').addClass('far');
+            $(this).removeClass('fas active').addClass('far');
         }
     });
 }
 
+// 添加心跳动画效果
+function addHeartbeatAnimation(containerId) {
+    $(`#${containerId} .heart.active`).each(function(index) {
+        const $heart = $(this);
+        setTimeout(() => {
+            $heart.addClass('pulse');
+            setTimeout(() => $heart.removeClass('pulse'), 300);
+        }, index * 100);
+    });
+}
+
+// 显示评分反馈
+function showRatingFeedback(rating) {
+    const $feedback = $('#ratingFeedback');
+    const $emoji = $('#ratingEmoji');
+    const $message = $('#ratingMessage');
+
+    let emoji, message;
+
+    // 根据评分选择反馈
+    switch(rating) {
+        case 1:
+            emoji = '😢';
+            message = '这部动漫没有让您满意，感谢您的反馈！';
+            break;
+        case 2:
+            emoji = '😐';
+            message = '这部动漫似乎一般般，我们会推荐更好的内容给您！';
+            break;
+        case 3:
+            emoji = '🙂';
+            message = '中规中矩的作品，我们会继续提供类似的内容！';
+            break;
+        case 4:
+            emoji = '😊';
+            message = '这部动漫相当不错，我们会推荐更多类似的内容给您！';
+            break;
+        case 5:
+            emoji = '😍';
+            message = '太棒了！您非常喜欢这部动漫，我们会推荐更多这样的精品！';
+            break;
+        default:
+            return;
+    }
+
+    $emoji.html(`<span style="font-size: 2rem;">${emoji}</span>`);
+    $message.text(message);
+    $feedback.removeClass('d-none').hide().fadeIn();
+}
+
+// 创建评论HTML
+function createCommentHtml(comment) {
+    // 使用用户默认头像
+    const avatarUrl = comment.user.avatar || '/static/images/default-avatar.jpg';
+
+    return `
+    <div class="comment-item">
+        <div class="comment-header">
+            <div class="comment-avatar">
+                <img src="${avatarUrl}" alt="${comment.user.username}" class="rounded-circle">
+            </div>
+            <div class="comment-info">
+                <h5 class="comment-author">${comment.user.username}</h5>
+                <span class="comment-date">${comment.timestamp}</span>
+            </div>
+            <div class="comment-actions">
+                <button class="btn btn-sm comment-like-btn" data-comment-id="${comment.id}">
+                    <i class="far fa-heart"></i>
+                    <span class="like-count">${comment.like_count}</span>
+                </button>
+
+                <div class="dropdown">
+                    <button class="btn btn-sm" data-bs-toggle="dropdown">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item edit-comment" href="#" data-comment-id="${comment.id}">
+                            <i class="fas fa-edit me-1"></i> 编辑
+                        </a></li>
+                        <li><a class="dropdown-item delete-comment" href="#" data-comment-id="${comment.id}">
+                            <i class="fas fa-trash-alt me-1"></i> 删除
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="comment-content" id="comment-content-${comment.id}">
+            ${comment.content.replace(/\n/g, '<br>')}
+        </div>
+
+        <div class="comment-edit-form d-none" id="comment-edit-form-${comment.id}">
+            <textarea class="form-control edit-comment-content">${comment.content}</textarea>
+            <div class="mt-2">
+                <button class="btn btn-sm btn-primary save-edit" data-comment-id="${comment.id}">保存</button>
+                <button class="btn btn-sm btn-secondary cancel-edit" data-comment-id="${comment.id}">取消</button>
+            </div>
+        </div>
+    </div>`;
+}
+
 // 显示需要登录提示
 function showLoginAlert() {
-    alert('请先登录后再进行此操作');
-    window.location.href = '/login/?next={{ request.path }}';
+    showToast('需要登录', '请先登录后再进行此操作');
+    setTimeout(() => {
+        window.location.href = '/login/?next={{ request.path }}';
+    }, 1500);
+}
+
+// 获取CSRF Token
+function getCsrfToken() {
+    return document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+           document.cookie.split('; ')
+               .find(row => row.startsWith('csrftoken='))
+               ?.split('=')[1];
 }
 
 // 显示操作结果提示

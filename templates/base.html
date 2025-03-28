@@ -337,14 +337,84 @@
     <script>
         // 通用JavaScript功能
         document.addEventListener('DOMContentLoaded', function() {
-            // 设置当前活动导航链接
+            // 设置当前活动导航链接 - 重构版
             const currentPath = window.location.pathname;
+
+            // 特殊页面规则定义
+            const specialPaths = {
+                'favorites': {
+                    pattern: /\/favorites\//,
+                    highlightText: '我的收藏'
+                },
+                'browsing_history': {
+                    pattern: /\/browsing-history\//,
+                    noHighlight: true
+                },
+                'user_comments': {
+                    pattern: /\/recommendation(s)?\/user-comments\//,
+                    noHighlight: true
+                }
+            };
+
+            // 检查是否在特殊页面上
+            let isSpecialPage = false;
+            let specialPageType = null;
+
+            for (const [type, config] of Object.entries(specialPaths)) {
+                if (config.pattern.test(currentPath)) {
+                    isSpecialPage = true;
+                    specialPageType = type;
+                    break;
+                }
+            }
+
+            // 清除所有现有的活动状态
+            document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+
+            // 处理特殊页面的高亮逻辑
+            if (isSpecialPage) {
+                const pageConfig = specialPaths[specialPageType];
+
+                // 如果是不需要高亮的页面，直接返回
+                if (pageConfig.noHighlight) {
+                    return; // 不高亮任何菜单项
+                }
+
+                // 对于需要特殊高亮的页面（如收藏页面）
+                if (pageConfig.highlightText) {
+                    document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
+                        const linkText = link.textContent.trim();
+                        if (linkText.includes(pageConfig.highlightText)) {
+                            link.classList.add('active');
+                        }
+                    });
+                    return;
+                }
+            }
+
+            // 标准高亮逻辑（针对非特殊页面）
+            // 先尝试精确匹配
+            let exactMatch = false;
             document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
                 const href = link.getAttribute('href');
-                if (href === currentPath || (currentPath.startsWith(href) && href !== '/')) {
+                if (href === currentPath) {
                     link.classList.add('active');
+                    exactMatch = true;
                 }
             });
+
+            // 如果没有精确匹配，再尝试前缀匹配
+            if (!exactMatch) {
+                document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
+                    const href = link.getAttribute('href');
+                    // 避免主页路径('/')匹配所有页面，仅当href不是根路径时才考虑前缀匹配
+                    if (href && href !== '/' && href.length > 1 && currentPath.startsWith(href)) {
+                        link.classList.add('active');
+                    }
+                });
+            }
 
             // 初始化所有tooltips
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));

@@ -1,8 +1,4 @@
-# recommendation/management/commands/crawl_anime.py
-
-import time
 from django.core.management.base import BaseCommand
-from django.utils import timezone
 from recommendation.scrapers.myanimelist_scraper import MyAnimeListScraper
 import logging
 
@@ -10,80 +6,75 @@ logger = logging.getLogger('django')
 
 
 class Command(BaseCommand):
-    help = '启动动漫爬虫以增量抓取新内容'
+    help = '从外部源抓取动漫数据'
 
     def add_arguments(self, parser):
-        parser.add_argument('--pages', type=int, default=5,
-                            help='爬取的页数')
-        parser.add_argument('--delay', type=float, default=2.5,
-                            help='请求延迟(秒)')
-        parser.add_argument('--full', action='store_true',
-                            help='全量抓取模式(默认增量)')
-        parser.add_argument('--debug', action='store_true',
-                            help='调试模式，打印更多信息')
+        parser.add_argument('--source', type=str, default='myanimelist',
+                            help='数据源 (目前仅支持 myanimelist)')
+        parser.add_argument('--mode', type=str, default='top',
+                            help='抓取模式 (top, search, id)')
+        parser.add_argument('--query', type=str, help='搜索查询（当mode=search时使用）')
+        parser.add_argument('--id', type=int, help='抓取特定ID（当mode=id时使用）')
+        parser.add_argument('--start-page', type=int, default=1,
+                            help='开始爬取的页数')
+        parser.add_argument('--count', type=int, default=1,
+                            help='爬取页数')
+        parser.add_argument('--import', action='store_true',
+                            help='导入抓取的数据到数据库')
+        parser.add_argument('--delay', type=float, default=4.0,
+                            help='请求间隔时间（秒）')
         parser.add_argument('--retries', type=int, default=3,
-                            help='请求失败时的重试次数')
-        parser.add_argument('--deep', action='store_true',
-                            help='深度爬取模式，获取更多详细信息')
+                            help='最大重试次数')
+        parser.add_argument('--force', action='store_true',
+                            help='强制导入已存在的动漫')
 
     def handle(self, *args, **options):
-        pages = options['pages']
+        source = options['source']
+        mode = options['mode']
+        query = options['query']
+        anime_id = options['id']
+        start_page = options['start_page']
+        count = options['count']
+        import_data = options['import']
         delay = options['delay']
-        incremental = not options['full']
-        debug = options['debug']
         retries = options['retries']
-        deep = options['deep']
+        force = options['force']
 
-        # 配置日志级别
-        if debug:
-            import logging
-            logger.setLevel(logging.DEBUG)
-            self.stdout.write(self.style.WARNING('调试模式已启用，日志级别设为DEBUG'))
+        self.stdout.write(f"开始从 {source} 抓取动漫数据...")
 
-        # 爬虫启动头信息
-        self.stdout.write(self.style.SUCCESS(f'===== MyAnimeList爬虫启动于 {timezone.now()} ====='))
-        self.stdout.write(self.style.SUCCESS(f'页数: {pages}'))
-        self.stdout.write(self.style.SUCCESS(f'延迟: {delay}秒'))
-        self.stdout.write(self.style.SUCCESS(f'模式: {"增量" if incremental else "全量"}'))
-        self.stdout.write(self.style.SUCCESS(f'重试次数: {retries}'))
-        self.stdout.write(self.style.SUCCESS(f'深度模式: {"开启" if deep else "关闭"}'))
+        # 实例化爬虫
+        if source == 'myanimelist':
+            scraper = MyAnimeListScraper(delay=delay, max_retries=retries)
+        else:
+            self.stderr.write(f"不支持的数据源: {source}")
+            return
 
-        # 记录开始时间
-        start_time = time.time()
-        total_added = 0
+        # 根据模式执行不同的抓取逻辑
+        if mode == 'top':
+            self.stdout.write(f"抓取热门动漫排行榜 (从第{start_page}页开始，共{count}页)")
 
-        try:
-            # 启动MyAnimeList爬虫
-            self.stdout.write(self.style.WARNING('启动MyAnimeList爬虫...'))
-            mal_scraper = MyAnimeListScraper(delay=delay, retries=retries)
+            # 始终导入数据，但除非force参数为True，否则跳过已存在的动漫
+            incremental = not force
 
-            # 启用深度模式时，设置爬虫附加参数
-            if deep:
-                mal_scraper.set_deep_mode(True)
+            if not import_data:
+                self.stdout.write(self.style.WARNING("警告: 未指定--import参数，将只抓取但不导入数据"))
 
-            added = mal_scraper.run(max_pages=pages, incremental=incremental)
-            total_added += added
-            self.stdout.write(self.style.SUCCESS(f'MyAnimeList爬虫完成，新增 {added} 部动漫'))
+            added = scraper.run(start_page=start_page, max_pages=count, incremental=incremental, do_import=import_data)
 
-            # 计算总耗时
-            elapsed_time = time.time() - start_time
-            self.stdout.write(self.style.SUCCESS(
-                f'爬虫任务完成，总共新增 {total_added} 部动漫，耗时 {elapsed_time:.2f} 秒'))
+            self.stdout.write(f"成功抓取并添加 {added} 部动漫")
 
-            # 如果有新增内容，提示重建模型
-            if total_added > 0:
-                self.stdout.write(self.style.WARNING(
-                    '检测到新增内容，正在自动重建推荐模型...'))
+        elif mode == 'search' and query:
+            self.stdout.write(f"搜索动漫: {query}")
+            self.stderr.write("搜索模式尚未实现")
+            return
 
-                # 自动调用模型训练
-                from recommendation.engine.models.ml_engine import GBDTRecommender
-                recommender = GBDTRecommender()
-                if recommender.train_model():
-                    self.stdout.write(self.style.SUCCESS('推荐模型重建成功!'))
-                else:
-                    self.stdout.write(self.style.ERROR('推荐模型重建失败，请手动执行 python manage.py train_ml_model'))
+        elif mode == 'id' and anime_id:
+            self.stdout.write(f"抓取特定ID: {anime_id}")
+            self.stderr.write("ID抓取模式尚未实现")
+            return
 
-        except KeyboardInterrupt:
-            self.stdout.write(self.style.WARNING('爬虫任务被用户中断'))
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(f'爬虫任务异常: {str(e)}'))
+        else:
+            self.stderr.write("无效的模式或参数组合")
+            return
+
+        self.stdout.write(self.style.SUCCESS("抓取完成"))

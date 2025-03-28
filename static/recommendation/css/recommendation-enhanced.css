@@ -1,5 +1,5 @@
 /* recommendation-enhanced.css */
-/* 量子态推荐系统样式增强 */
+/* 量子态推荐系统样式增强 v2.0 */
 
 /* 推荐策略选择器 */
 .strategy-selector {
@@ -47,8 +47,52 @@
   transition: opacity 0.4s ease, transform 0.4s ease, box-shadow 0.3s ease;
 }
 
+.card-img-container {
+  height: 250px;
+  overflow: hidden;
+  position: relative;
+}
+
+.card-img-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.recommendation-card:hover .card-img-container img {
+  transform: scale(1.05);
+}
+
+.recommendation-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.08);
+}
+
 .confidence-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  padding: 5px 10px;
   transition: background-color 0.3s ease;
+}
+
+.confidence-high {
+  background-color: rgba(40, 167, 69, 0.85);
+  color: white;
+}
+
+.confidence-medium {
+  background-color: rgba(255, 193, 7, 0.85);
+  color: #212529;
+}
+
+.confidence-low {
+  background-color: rgba(108, 117, 125, 0.85);
+  color: white;
 }
 
 .confidence-level {
@@ -76,6 +120,12 @@
   position: relative;
   overflow: hidden;
   transition: all 0.5s ease;
+  background: linear-gradient(45deg, #7c3aed, #4f46e5);
+  color: white;
+  padding: 20px;
+  margin-bottom: 30px;
+  border-radius: 10px;
+  box-shadow: 0 5px 15px rgba(78, 0, 224, 0.2);
 }
 
 .algo-header::after {
@@ -92,7 +142,7 @@
   );
   opacity: 0;
   transition: opacity 0.5s ease;
-  z-index: -1;
+  z-index: 0;
 }
 
 .algo-header:hover::after {
@@ -102,23 +152,19 @@
 .algo-title {
   position: relative;
   display: inline-block;
+  margin-bottom: 0.5rem;
 }
 
-.algo-title::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: -4px;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(to right, #8b5cf6, #10b981);
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.3s ease;
+.algo-icon {
+  font-size: 2rem;
+  margin-right: 15px;
+  vertical-align: middle;
 }
 
-.algo-header:hover .algo-title::after {
-  transform: scaleX(1);
+.algo-description {
+  margin-top: 10px;
+  opacity: 0.9;
+  max-width: 800px;
 }
 
 /* 颜色主题增强 */
@@ -130,6 +176,8 @@
 
 /* 空状态增强 */
 .empty-state {
+  text-align: center;
+  padding: 50px 20px;
   transition: all 0.3s ease;
 }
 
@@ -138,6 +186,9 @@
 }
 
 .empty-icon {
+  font-size: 5rem;
+  color: #dee2e6;
+  margin-bottom: 20px;
   transition: transform 0.3s ease;
 }
 
@@ -146,15 +197,19 @@
 }
 
 /* 星级评分增强 */
+.rating-stars {
+  color: #ffc107;
+}
+
 .rating-stars i {
   transition: transform 0.2s ease;
 }
 
-.rating-stars:hover i {
+.recommendation-card:hover .rating-stars i {
   transform: rotate(5deg);
 }
 
-.rating-stars:hover i:nth-child(odd) {
+.recommendation-card:hover .rating-stars i:nth-child(odd) {
   transform: rotate(-5deg);
 }
 
@@ -166,5 +221,23 @@
 
   .algo-header {
     padding: 15px;
+  }
+
+  .card-img-container {
+    height: 200px;
+  }
+}
+
+@media (max-width: 576px) {
+  .card-img-container {
+    height: 180px;
+  }
+
+  .algo-icon {
+    font-size: 1.5rem;
+  }
+
+  .algo-title {
+    font-size: 1.5rem;
   }
 }

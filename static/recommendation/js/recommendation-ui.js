@@ -1,6 +1,5 @@
-
-// Fix 2: Update recommendation-ui.js
-// This improves error handling and ensures better UI feedback
+// 量子态推荐UI - 完全重构版
+// 增强错误处理、用户反馈和动画效果
 
 class RecommendationUI {
   constructor(containerId = 'recommendationContainer') {
@@ -10,6 +9,8 @@ class RecommendationUI {
     this.isLoading = false;
     this.retryCount = 0;
     this.maxRetries = 3;
+
+    console.log("量子态推荐UI组件初始化完成");
   }
 
   /**
@@ -117,14 +118,14 @@ class RecommendationUI {
     let html = '<div class="row recommendation-grid">';
 
     recommendations.forEach(anime => {
-      const coverUrl = anime.cover_url || `https://via.placeholder.com/400x250?text=${encodeURIComponent(anime.title)}`;
+      const coverUrl = anime.cover_url || `/static/images/default-cover.jpg`; // 使用默认图片
       const score = anime.score || 0;
 
       html += `
         <div class="col-md-3 col-sm-6 mb-4">
           <div class="card recommendation-card h-100">
             <div class="card-img-container">
-              <img src="${coverUrl}" alt="${anime.title}" class="card-img-top">
+              <img src="${coverUrl}" alt="${anime.title}" class="card-img-top" onerror="this.src='/static/images/no-image.jpg'">
               <div class="confidence-badge ${this._getConfidenceClass(score)}">
                 ${score}% 匹配
               </div>
@@ -180,12 +181,12 @@ class RecommendationUI {
       // 更新URL以反映当前策略
       this._updateUrlStrategy(strategy);
 
+      // 更新策略描述
+      this._updateStrategyDescription(strategy);
+
       // 使用推荐引擎获取数据
       const recommendations = await recommendationEngine.getRecommendations(strategy);
       this.renderRecommendations(recommendations);
-
-      // 更新策略描述
-      this._updateStrategyDescription(strategy);
 
       // 重置重试计数
       this.retryCount = 0;
@@ -266,7 +267,7 @@ class RecommendationUI {
     const stratDesc = recommendationEngine.getStrategyDescription(strategy);
 
     descContainer.innerHTML = `
-      <i class="fas ${stratDesc.icon} algo-icon"></i>
+      <i class="fas ${stratDesc.icon} algo-icon ${stratDesc.className}"></i>
       <h2 class="algo-title">${stratDesc.title}</h2>
       <p class="algo-description">${stratDesc.description}</p>
     `;
@@ -283,6 +284,7 @@ class RecommendationUI {
       // 设置初始状态
       card.style.opacity = '0';
       card.style.transform = 'translateY(20px)';
+      card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
 
       // 添加延迟入场动画
       setTimeout(() => {

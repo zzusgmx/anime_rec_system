@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}我的浏览历史 - 量子态动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/interaction.css' %}">
+<style>
+    .history-timeline {
+        position: relative;
+        margin: 2rem 0;
+    }
+
+    .history-timeline::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 20px;
+        width: 4px;
+        background: linear-gradient(to bottom, #7b1fa2, #4a148c);
+        border-radius: 2px;
+    }
+
+    .history-item {
+        position: relative;
+        margin-bottom: 1.5rem;
+        padding-left: 50px;
+    }
+
+    .history-date {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 40px;
+        height: 40px;
+        background: #7b1fa2;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        z-index: 1;
+    }
+
+    .history-card {
+        transition: all 0.3s ease;
+    }
+
+    .history-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+
+    .empty-history {
+        text-align: center;
+        padding: 3rem 0;
+    }
+
+    .empty-history .icon {
+        font-size: 4rem;
+        color: #e0e0e0;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-3">我的浏览历史</h1>
+            <p class="text-muted">查看您最近浏览过的动漫作品，帮助您回顾精彩内容。</p>
+        </div>
+    </div>
+
+    {% if browsing_history %}
+    <div class="history-timeline">
+        {% for record in browsing_history %}
+        <div class="history-item">
+            <div class="history-date">
+                {{ record.last_browsed|date:"d" }}
+            </div>
+            <div class="card history-card">
+                <div class="row g-0">
+                    <div class="col-md-3">
+                        <a href="{% url 'anime:anime_detail' record.anime.slug %}">
+                            {% if record.anime.cover %}
+                            <img src="{{ record.anime.cover.url }}" class="img-fluid rounded-start" alt="{{ record.anime.title }}" style="height: 200px; width: 100%; object-fit: cover;">
+                            {% else %}
+                            <img src="{% static 'images/no-image.jpg' %}" class="img-fluid rounded-start" alt="{{ record.anime.title }}" style="height: 200px; width: 100%; object-fit: cover;">
+                            {% endif %}
+                        </a>
+                    </div>
+                    <div class="col-md-9">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title">
+                                    <a href="{% url 'anime:anime_detail' record.anime.slug %}" class="text-decoration-none">{{ record.anime.title }}</a>
+                                </h5>
+                                <span class="badge bg-primary">浏览 {{ record.browse_count }} 次</span>
+                            </div>
+                            <p class="card-text">{{ record.anime.description|truncatechars:200 }}</p>
+                            <p class="card-text">
+                                <small class="text-muted">最近浏览于: {{ record.last_browsed|date:"Y-m-d H:i" }}</small>
+                            </p>
+                            <div class="mt-2">
+                                <a href="{% url 'anime:anime_detail' record.anime.slug %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye me-1"></i> 再次查看
+                                </a>
+                                <button class="btn btn-sm btn-outline-danger remove-history" data-id="{{ record.id }}">
+                                    <i class="fas fa-trash-alt me-1"></i> 从历史中移除
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <button id="clearAllHistory" class="btn btn-danger">
+            <i class="fas fa-trash-alt me-1"></i> 清除全部历史
+        </button>
+
+        {% if is_paginated %}
+        <nav aria-label="浏览历史分页">
+            <ul class="pagination">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1">&laquo; 首页</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">上一页</a>
+                </li>
+                {% endif %}
+
+                <li class="page-item disabled">
+                    <span class="page-link">第 {{ page_obj.number }} 页 / 共 {{ page_obj.paginator.num_pages }} 页</span>
+                </li>
+
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">下一页</a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">末页 &raquo;</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+
+    {% else %}
+    <div class="empty-history">
+        <div class="icon">
+            <i class="far fa-eye-slash"></i>
+        </div>
+        <h3>暂无浏览历史</h3>
+        <p class="text-muted">开始浏览动漫，您的历史记录将显示在这里。</p>
+        <a href="{% url 'anime:anime_list' %}" class="btn btn-primary mt-3">
+            <i class="fas fa-list me-1"></i> 浏览所有动漫
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 移除单个历史记录
+    const removeButtons = document.querySelectorAll('.remove-history');
+    removeButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const historyId = this.dataset.id;
+            if (confirm('确定要从浏览历史中移除这条记录吗？')) {
+                removeHistoryRecord(historyId);
+            }
+        });
+    });
+
+    // 清除全部历史
+    const clearAllBtn = document.getElementById('clearAllHistory');
+    if (clearAllBtn) {
+        clearAllBtn.addEventListener('click', function() {
+            if (confirm('确定要清除全部浏览历史吗？这个操作无法撤销。')) {
+                clearAllHistory();
+            }
+        });
+    }
+
+    // 移除单个历史记录
+    function removeHistoryRecord(id) {
+        fetch(`/recommendations/browsing-history/remove/${id}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 移除元素并显示成功消息
+                document.querySelector(`.remove-history[data-id="${id}"]`)
+                    .closest('.history-item')
+                    .remove();
+
+                showToast('成功', '已从浏览历史中移除');
+
+                // 如果没有剩余历史记录，刷新页面显示空状态
+                if (document.querySelectorAll('.history-item').length === 0) {
+                    setTimeout(() => location.reload(), 1000);
+                }
+            } else {
+                showToast('错误', data.error || '操作失败，请稍后再试');
+            }
+        })
+        .catch(error => {
+            console.error('移除历史记录失败:', error);
+            showToast('错误', '操作失败，请稍后再试');
+        });
+    }
+
+    // 清除全部历史
+    function clearAllHistory() {
+        fetch('/recommendations/browsing-history/clear/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('成功', '已清除全部浏览历史');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast('错误', data.error || '操作失败，请稍后再试');
+            }
+        })
+        .catch(error => {
+            console.error('清除历史记录失败:', error);
+            showToast('错误', '操作失败，请稍后再试');
+        });
+    }
+
+    // 获取CSRF Token
+    function getCsrfToken() {
+        return document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+               document.cookie.split('; ')
+                   .find(row => row.startsWith('csrftoken='))
+                   ?.split('=')[1];
+    }
+
+    // 显示Toast通知
+    function showToast(title, message) {
+        const toastHtml = `
+        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
+            <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <strong class="me-auto">${title}</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">${message}</div>
+            </div>
+        </div>`;
+
+        // 添加到页面
+        const $toast = $(toastHtml).appendTo('body');
+
+        // 3秒后自动移除
+        setTimeout(function() {
+            $toast.remove();
+        }, 3000);
+    }
+});
+</script>
+{% endblock %}

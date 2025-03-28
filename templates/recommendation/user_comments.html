@@ -1,0 +1,478 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}我的评论 - 量子态动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/interaction.css' %}">
+<style>
+  /* 评论列表样式 */
+  .comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .comment-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .comment-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  .comment-header {
+    padding: 1rem;
+    background: linear-gradient(135deg, #6d28d9, #8b5cf6);
+    color: #fff;
+    position: relative;
+  }
+
+  .comment-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+
+  .comment-title h5 {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .comment-title a {
+    color: #fff;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .comment-title a:hover {
+    opacity: 0.9;
+    text-decoration: underline;
+  }
+
+  .comment-meta {
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem;
+    opacity: 0.9;
+  }
+
+  .comment-meta i {
+    margin-right: 0.5rem;
+  }
+
+  .comment-content {
+    padding: 1.5rem;
+    color: #334155;
+    line-height: 1.6;
+  }
+
+  .comment-actions {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0 1.5rem 1.5rem;
+  }
+
+  .page-header {
+    background: linear-gradient(135deg, #6d28d9, #8b5cf6, #10b981);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 0 0 20px 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .page-header::before {
+    content: '';
+    position: absolute;
+    top: -20%;
+    left: -10%;
+    width: 120%;
+    height: 150%;
+    background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+CiAgPGRlZnM+CiAgICA8ZmlsdGVyIGlkPSJub2lzZSIgeD0iMCIgeT0iMCIgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSI+CiAgICAgIDxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjY1IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIiByZXN1bHQ9Im5vaXNlIi8+CiAgICAgIDxmZUJsZW5kIGluPSJub2lzZSIgaW4yPSJTb3VyY2VHcmFwaGljIiBtb2RlPSJvdmVybGF5IiByZXN1bHQ9ImJsZW5kZWQiLz4KICAgIDwvZmlsdGVyPgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ0cmFuc3BhcmVudCIgZmlsdGVyPSJ1cmwoI25vaXNlKSIgb3BhY2l0eT0iMC4wNSIvPgo8L3N2Zz4=');
+    opacity: 0.3;
+    transform: rotate(10deg);
+  }
+
+  .page-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    position: relative;
+  }
+
+  .page-header p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    max-width: 600px;
+    position: relative;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem 0;
+  }
+
+  .empty-icon {
+    font-size: 4rem;
+    color: #cbd5e1;
+    margin-bottom: 1rem;
+  }
+
+  .empty-state h4 {
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+
+  .empty-state p {
+    color: #64748b;
+    max-width: 500px;
+    margin: 0 auto 1.5rem;
+  }
+
+  /* 量子粒子效果 */
+  .quantum-particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #8b5cf6;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- CSRF Token -->
+{% csrf_token %}
+
+<!-- 页面头部 -->
+<div class="page-header">
+  <div class="container">
+    <h1><i class="fas fa-comments me-2"></i>我的评论</h1>
+    <p>管理您对动漫的所有评论和反馈</p>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <div class="col-lg-8">
+      {% if comments %}
+        <div class="comments-list">
+          {% for comment in comments %}
+            <div class="comment-card">
+              <div class="comment-header">
+                <div class="comment-title">
+                  <h5><a href="{% url 'anime:anime_detail' comment.anime.slug %}">{{ comment.anime.title }}</a></h5>
+                </div>
+                <div class="comment-meta">
+                  <i class="fas fa-calendar-alt"></i> {{ comment.timestamp|date:"Y-m-d H:i" }}
+                  <span class="ms-3"><i class="fas fa-heart"></i> {{ comment.like_count }} 点赞</span>
+                </div>
+              </div>
+              <div class="comment-content" id="comment-content-{{ comment.id }}">
+                {{ comment.content|linebreaks }}
+              </div>
+              <div class="comment-actions">
+                <button class="btn btn-sm btn-outline-primary edit-comment" data-comment-id="{{ comment.id }}">
+                  <i class="fas fa-edit me-1"></i> 编辑
+                </button>
+                <button class="btn btn-sm btn-outline-danger delete-comment" data-comment-id="{{ comment.id }}">
+                  <i class="fas fa-trash-alt me-1"></i> 删除
+                </button>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+
+        <!-- 分页 -->
+        {% if is_paginated %}
+          <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+              {% if page_obj.has_previous %}
+                <li class="page-item">
+                  <a class="page-link" href="?page=1"><i class="fas fa-angle-double-left"></i></a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}"><i class="fas fa-angle-left"></i></a>
+                </li>
+              {% endif %}
+
+              {% for i in page_obj.paginator.page_range %}
+                {% if page_obj.number == i %}
+                  <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+                {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                  <li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>
+                {% endif %}
+              {% endfor %}
+
+              {% if page_obj.has_next %}
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}"><i class="fas fa-angle-right"></i></a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}"><i class="fas fa-angle-double-right"></i></a>
+                </li>
+              {% endif %}
+            </ul>
+          </nav>
+        {% endif %}
+
+      {% else %}
+        <!-- 空状态 -->
+        <div class="empty-state">
+          <div class="empty-icon">
+            <i class="fas fa-comment-slash"></i>
+          </div>
+          <h4>暂无评论记录</h4>
+          <p>您还没有对任何动漫发表评论。分享您的想法和感受，让其他用户了解您对动漫的见解。</p>
+          <a href="{% url 'anime:anime_list' %}" class="btn btn-primary rounded-pill">
+            <i class="fas fa-list me-1"></i> 浏览动漫
+          </a>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+      <!-- 侧边栏 -->
+      <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+          <i class="fas fa-info-circle me-1"></i> 评论指南
+        </div>
+        <div class="card-body">
+          <h5 class="card-title">如何写好评论？</h5>
+          <p class="card-text">一条优质的评论能帮助其他用户更好地了解动漫作品：</p>
+          <ul class="mb-0">
+            <li>分享您对剧情、角色、画风的看法</li>
+            <li>避免透露过多剧透内容</li>
+            <li>尊重其他用户，文明用语</li>
+            <li>如果是推荐，可以说明适合哪类观众</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 快速链接 -->
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <i class="fas fa-link me-1"></i> 快速链接
+        </div>
+        <div class="card-body">
+          <div class="list-group">
+            <a href="{% url 'anime:anime_list' %}" class="list-group-item list-group-item-action">
+              <i class="fas fa-list me-2"></i>浏览所有动漫
+            </a>
+            <a href="{% url 'recommendation:recommendations' %}" class="list-group-item list-group-item-action">
+              <i class="fas fa-magic me-2"></i>个性化推荐
+            </a>
+            <a href="{% url 'recommendation:browsing_history' %}" class="list-group-item list-group-item-action">
+              <i class="fas fa-history me-2"></i>浏览历史
+            </a>
+            <a href="{% url 'recommendation:favorites' %}" class="list-group-item list-group-item-action">
+              <i class="fas fa-heart me-2"></i>我的收藏
+            </a>
+            <a href="{% url 'recommendation:user_dashboard' %}" class="list-group-item list-group-item-action">
+              <i class="fas fa-chart-line me-2"></i>推荐中心
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // 评论编辑功能
+  document.querySelectorAll('.edit-comment').forEach(button => {
+    button.addEventListener('click', function() {
+      const commentId = this.dataset.commentId;
+      // 获取评论文本
+      const commentContent = document.getElementById(`comment-content-${commentId}`);
+      const originalContent = commentContent.textContent.trim();
+
+      // 创建编辑表单
+      const formHtml = `
+        <form id="edit-form-${commentId}" class="p-2">
+          <div class="form-group mb-3">
+            <textarea class="form-control" rows="4">${originalContent}</textarea>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save me-1"></i> 保存
+            </button>
+            <button type="button" class="btn btn-secondary cancel-edit">
+              <i class="fas fa-times me-1"></i> 取消
+            </button>
+          </div>
+        </form>
+      `;
+
+      // 保存原始内容
+      commentContent.dataset.originalContent = originalContent;
+
+      // 替换评论内容为编辑表单
+      commentContent.innerHTML = formHtml;
+
+      // 隐藏操作按钮
+      const commentCard = this.closest('.comment-card');
+      commentCard.querySelector('.comment-actions').style.display = 'none';
+
+      // 处理表单提交
+      const form = document.getElementById(`edit-form-${commentId}`);
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const newContent = this.querySelector('textarea').value.trim();
+
+        if (!newContent) {
+          alert('评论内容不能为空');
+          return;
+        }
+
+        // 获取CSRF Token
+        const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+        // 发送更新请求
+        fetch(`/recommendations/comments/update/${commentId}/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          },
+          body: JSON.stringify({ content: newContent })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // 更新评论内容
+            commentContent.innerHTML = newContent.replace(/\n/g, '<br>');
+            // 显示操作按钮
+            commentCard.querySelector('.comment-actions').style.display = 'flex';
+          } else {
+            alert(data.error || '更新失败，请稍后再试');
+          }
+        })
+        .catch(error => {
+          console.error('更新评论出错:', error);
+          alert('更新失败，请稍后再试');
+        });
+      });
+
+      // 处理取消编辑
+      form.querySelector('.cancel-edit').addEventListener('click', function() {
+        commentContent.innerHTML = originalContent.replace(/\n/g, '<br>');
+        commentCard.querySelector('.comment-actions').style.display = 'flex';
+      });
+    });
+  });
+
+  // 评论删除功能
+  document.querySelectorAll('.delete-comment').forEach(button => {
+    button.addEventListener('click', function() {
+      if (!confirm('确定要删除这条评论吗？此操作不可撤销。')) {
+        return;
+      }
+
+      const commentId = this.dataset.commentId;
+      const commentCard = this.closest('.comment-card');
+
+      // 获取CSRF Token
+      const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+
+      fetch(`/recommendations/comments/delete/${commentId}/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // 淡出动画效果
+          commentCard.style.opacity = '0';
+          commentCard.style.transform = 'translateX(-100px)';
+          commentCard.style.transition = 'all 0.5s ease';
+
+          // 删除元素
+          setTimeout(() => {
+            commentCard.remove();
+
+            // 检查是否没有评论了
+            const remainingComments = document.querySelectorAll('.comment-card').length;
+            if (remainingComments === 0) {
+              location.reload(); // 刷新页面显示空状态
+            }
+          }, 500);
+        } else {
+          alert(data.error || '删除失败，请稍后再试');
+        }
+      })
+      .catch(error => {
+        console.error('删除评论出错:', error);
+        alert('删除失败，请稍后再试');
+      });
+    });
+  });
+
+  // 创建量子粒子效果
+  function createQuantumParticles() {
+    const container = document.querySelector('.page-header');
+    if (!container) return;
+
+    const numberOfParticles = 20;
+
+    for (let i = 0; i < numberOfParticles; i++) {
+      const particle = document.createElement('div');
+      particle.classList.add('quantum-particle');
+
+      // 随机位置
+      const xPos = Math.random() * 100;
+      const yPos = Math.random() * 100;
+
+      particle.style.left = `${xPos}%`;
+      particle.style.top = `${yPos}%`;
+
+      // 随机大小
+      const size = Math.random() * 5 + 2;
+      particle.style.width = `${size}px`;
+      particle.style.height = `${size}px`;
+
+      // 随机颜色
+      const hue = Math.random() * 60 + 240; // 蓝紫色调
+      particle.style.backgroundColor = `hsl(${hue}, 80%, 70%)`;
+
+      // 随机动画
+      const duration = Math.random() * 10 + 5;
+      const delay = Math.random() * 5;
+
+      particle.style.animation = `float ${duration}s ease-in-out ${delay}s infinite`;
+
+      // 随机透明度
+      particle.style.opacity = Math.random() * 0.5 + 0.3;
+
+      container.appendChild(particle);
+    }
+  }
+
+  // 页面加载完成后初始化
+  document.addEventListener('DOMContentLoaded', function() {
+    createQuantumParticles();
+  });
+</script>
+{% endblock %}

@@ -6,6 +6,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
 from anime_rec_system.admin import DashboardAdmin
+from users.views import custom_logout_view
 
 # 创建自定义Admin站点实例
 admin_site = DashboardAdmin(name='dashboard_admin')
@@ -17,6 +18,9 @@ for model, model_admin in admin.site._registry.items():
     admin_site.register(model, model_admin.__class__)
 
 urlpatterns = [
+    # 注意顺序：自定义登出路由必须在admin路由之前
+    path('admin/logout/', custom_logout_view, name='admin_logout'),
+
     # 默认Django管理后台
     path('admin/', admin_site.urls),
 

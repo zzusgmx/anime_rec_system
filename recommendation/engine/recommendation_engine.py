@@ -6,7 +6,9 @@ from django.db.models import Avg, Count
 from django.core.cache import cache
 from django.utils import timezone
 import logging
-
+from pathlib import Path
+import joblib
+import pickle
 from anime.models import Anime, AnimeType
 from recommendation.models import UserRating
 from users.models import UserBrowsing, UserPreference  # 修正导入路径
@@ -40,8 +42,8 @@ class RecommendationEngine:
         try:
             # 加载GBDT模型和编码器
             model_dir = Path(__file__).parent / 'models'
-            model_path = model_dir / 'bgdt_model.joblib'
-            encoders_path = model_dir / 'bgdt_encoders.pkl'
+            model_path = model_dir / 'gbdt_model.joblib'
+            encoders_path = model_dir / 'gbdt_encoders.pkl'
 
             if not (model_path.exists() and encoders_path.exists()):
                 logger.error(f"GBDT模型文件不存在: {model_path} 或 {encoders_path}")

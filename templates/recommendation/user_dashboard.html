@@ -11,6 +11,13 @@
   <!-- Font Awesome 图标库 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 
+  <!-- 自定义CSS -->
+  <link rel="stylesheet" href="/static/css/interaction.css">
+  <link rel="stylesheet" href="/static/recommendation/css/recommendation-enhanced.css">
+
+  <!-- Dashboard.js 脚本 -->
+  <script src="/static/recommendation/js/dashboard.js" defer></script>
+
   <style>
     :root {
       --primary: #6d28d9;
@@ -699,6 +706,9 @@
   </style>
 </head>
 <body>
+  <!-- CSRF Token -->
+  {% csrf_token %}
+
   <!-- 导航栏 -->
   <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container">
@@ -711,27 +721,27 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav me-auto">
           <li class="nav-item">
-            <a class="nav-link" href="/anime/list/">
+            <a class="nav-link {% if active_tab == 'anime_list' %}active{% endif %}" href="{% url 'anime:anime_list' %}">
               <i class="fas fa-list me-1"></i>动漫列表
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/anime/types/">
+            <a class="nav-link {% if active_tab == 'anime_type' %}active{% endif %}" href="{% url 'anime:anime_type_list' %}">
               <i class="fas fa-tags me-1"></i>类型分类
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/recommendations/">
+            <a class="nav-link {% if active_tab == 'recommendations' %}active{% endif %}" href="{% url 'recommendation:recommendations' %}">
               <i class="fas fa-magic me-1"></i>智能推荐
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="/favorites/">
+            <a class="nav-link {% if active_tab == 'favorites' %}active{% endif %}" href="{% url 'recommendation:favorites' %}">
               <i class="fas fa-heart me-1"></i>我的收藏
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link active" href="/recommendations/dashboard/">
+            <a class="nav-link {% if active_tab == 'dashboard' %}active{% endif %}" href="{% url 'recommendation:user_dashboard' %}">
               <i class="fas fa-chart-line me-1"></i>推荐中心
             </a>
           </li>
@@ -778,7 +788,11 @@
   <div class="dashboard-header">
     <div class="container position-relative">
       <!-- 添加用户头像在右上角 -->
-
+      {% if user.profile.avatar %}
+        <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}" class="user-profile-pic">
+      {% else %}
+        <i class="fas fa-user-circle user-profile-pic" style="font-size: 100px; color: rgba(255, 255, 255, 0.7);"></i>
+      {% endif %}
 
       <h1 class="dashboard-title">我的动漫中心</h1>
       <p class="dashboard-subtitle">管理您的收藏、评分和获取基于量子算法的个性化推荐</p>
@@ -814,30 +828,30 @@
             <h2 class="section-title mb-0">
               <i class="fas fa-magic"></i>为您推荐
             </h2>
-            <a href="/recommendations/" class="btn btn-sm btn-outline-primary rounded-pill">
+            <a href="{% url 'recommendation:recommendations' %}" class="btn btn-sm btn-outline-primary rounded-pill">
               <i class="fas fa-eye me-1"></i>查看全部推荐
             </a>
           </div>
 
           <!-- 推荐算法快速选择 -->
           <div class="quantum-strategy-grid">
-            <a href="javascript:loadRecommendations('hybrid')" class="quantum-strategy-card quantum-tooltip strategy-selector active" data-strategy="hybrid" data-tooltip="基于混合算法推荐">
+            <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector active" data-strategy="hybrid" data-tooltip="基于混合算法推荐">
               <i class="fas fa-magic quantum-strategy-icon icon-hybrid"></i>
               <span>混合推荐</span>
             </a>
-            <a href="javascript:loadRecommendations('cf')" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="cf" data-tooltip="基于相似用户偏好">
+            <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="cf" data-tooltip="基于相似用户偏好">
               <i class="fas fa-users quantum-strategy-icon icon-cf"></i>
               <span>协同过滤</span>
             </a>
-            <a href="javascript:loadRecommendations('content')" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="content" data-tooltip="基于动漫内容特征">
+            <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="content" data-tooltip="基于动漫内容特征">
               <i class="fas fa-tags quantum-strategy-icon icon-content"></i>
               <span>基于内容</span>
             </a>
-            <a href="javascript:loadRecommendations('ml')" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="ml" data-tooltip="使用GBDT机器学习模型">
+            <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="ml" data-tooltip="使用GBDT机器学习模型">
               <i class="fas fa-brain quantum-strategy-icon icon-ml"></i>
               <span>基于GBDT</span>
             </a>
-            <a href="javascript:loadRecommendations('popular')" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="popular" data-tooltip="热门动漫推荐">
+            <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="popular" data-tooltip="热门动漫推荐">
               <i class="fas fa-fire quantum-strategy-icon icon-popular"></i>
               <span>热门推荐</span>
             </a>
@@ -874,7 +888,13 @@
         <!-- 最近评论 -->
         <div class="section-card">
           <h2 class="section-title">
-            <i class="fas fa-comment"></i>最近评论
+            <i class="fas fa-comment"></i>
+            <a href="{% url 'recommendation:user_comments' %}" style="text-decoration: none; color: inherit;">
+              最近评论
+              <small class="ms-2 fs-6">
+                <i class="fas fa-external-link-alt"></i>
+              </small>
+            </a>
           </h2>
 
           <div id="commentsContainer">
@@ -893,21 +913,27 @@
           </h2>
 
           <div class="list-group">
-            <a href="/anime/list/" class="list-group-item list-group-item-action">
+            <a href="{% url 'anime:anime_list' %}" class="list-group-item list-group-item-action">
               <i class="fas fa-list"></i>浏览所有动漫
             </a>
-            <a href="/anime/types/" class="list-group-item list-group-item-action">
+            <a href="{% url 'anime:anime_type_list' %}" class="list-group-item list-group-item-action">
               <i class="fas fa-tags"></i>动漫类型列表
             </a>
-            <a href="/recommendations/" class="list-group-item list-group-item-action">
+            <a href="{% url 'recommendation:recommendations' %}" class="list-group-item list-group-item-action">
               <i class="fas fa-magic"></i>个性化推荐
             </a>
             <a href="/profile/" class="list-group-item list-group-item-action">
               <i class="fas fa-user-cog"></i>管理个人资料
             </a>
-            <a href="/favorites/" class="list-group-item list-group-item-action">
+            <a href="{% url 'recommendation:favorites' %}" class="list-group-item list-group-item-action">
               <i class="fas fa-heart"></i>我的收藏
             </a>
+            <a href="{% url 'recommendation:browsing_history' %}" class="list-group-item list-group-item-action">
+              <i class="fas fa-history"></i>浏览历史
+            </a>
+              <a href="{% url 'recommendation:user_comments' %}" class="list-group-item list-group-item-action">
+                <i class="fas fa-comments me-2"></i>我的评论
+                </a>
           </div>
         </div>
 
@@ -962,47 +988,39 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
+  <!-- 初始数据加载 -->
   <script>
-    // 全局状态管理
-    const state = {
-      currentStrategy: 'hybrid',
-      userData: null,
-      recommendations: {},
-      ratings: [],
-      comments: []
-    };
+    // 初始数据
+    const initialRatings = {{ user_ratings|safe }};
+    const initialComments = {{ user_comments|safe }};
 
-    // DOM就绪后执行初始化
+    // 添加这行 - 定义全局URL对象
+    const URLS = {
+        animeList: "{% url 'anime:anime_list' %}",
+        recommendations: "{% url 'recommendation:recommendations' %}",
+        browsingHistory: "{% url 'recommendation:browsing_history' %}",
+        favorites: "{% url 'recommendation:favorites' %}"};
+  </script>
+
+  <!-- 引入仪表盘控制器脚本 -->
+  <script src="/static/recommendation/js/dashboard.js"></script>
+
+  <!-- 初始化仪表盘 -->
+  <script>
+    // 创建并初始化仪表盘控制器
     document.addEventListener('DOMContentLoaded', function() {
-      // 初始化粒子效果
-      createParticles();
+      window.dashboardController = new DashboardController();
+      dashboardController.initDashboard();
 
-      // 设置当前导航链接
-      setActiveNavLink();
-
-      // 加载用户数据
-      loadUserData();
-
-      // 初始化推荐
-      loadRecommendations('hybrid');
-
-      // 加载评分和评论数据
-      loadUserActivities();
-
-      // 策略选择器事件委托
-      document.querySelector('.quantum-strategy-grid').addEventListener('click', function(event) {
-        const selector = event.target.closest('.strategy-selector');
-        if (selector) {
-          const strategy = selector.dataset.strategy;
-          setActiveStrategy(strategy);
-          loadRecommendations(strategy);
-        }
-      });
+      // 创建粒子效果
+      createQuantumParticles();
     });
 
-    // 创建量子态粒子效果
-    function createParticles() {
+    // 量子粒子效果函数
+    function createQuantumParticles() {
       const container = document.querySelector('.dashboard-header');
+      if (!container) return;
+
       const numberOfParticles = 20;
 
       for (let i = 0; i < numberOfParticles; i++) {
@@ -1036,328 +1054,6 @@
 
         container.appendChild(particle);
       }
-    }
-
-    // 设置活动导航链接
-    function setActiveNavLink() {
-      const currentPath = window.location.pathname;
-      document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
-        const href = link.getAttribute('href');
-        if (href === currentPath || (currentPath.startsWith(href) && href !== '/')) {
-          link.classList.add('active');
-        }
-      });
-    }
-
-    // 设置活动推荐策略
-    function setActiveStrategy(strategy) {
-      document.querySelectorAll('.strategy-selector').forEach(selector => {
-        if (selector.dataset.strategy === strategy) {
-          selector.classList.add('active');
-        } else {
-          selector.classList.remove('active');
-        }
-      });
-      state.currentStrategy = strategy;
-    }
-
-    // 加载用户数据
-    function loadUserData() {
-      // 在真实环境中，这里应该是一个AJAX请求
-      // 模拟API调用
-      setTimeout(() => {
-        const userData = {
-          id: 1,
-          username: '{{ user.username }}',
-          stats: {
-            ratings: {{ user.profile.rating_count|default:"0" }},
-            comments: {{ user.profile.comment_count|default:"0" }},
-            favorites: {{ user.favorites.count|default:"0" }},
-            history: {{ user.browsing_history.count|default:"0" }}
-          }
-        };
-
-        // 更新状态
-        state.userData = userData;
-
-        // 更新UI
-        document.getElementById('username').textContent = userData.username;
-
-        // 更新统计数据
-        animateStats(userData.stats);
-      }, 800);
-    }
-
-    // 动画显示统计数据
-    function animateStats(stats) {
-      const statItems = document.querySelectorAll('#userStats .stat-item');
-
-      statItems.forEach(item => {
-        const type = item.dataset.type;
-        const target = stats[type] || 0;
-        const display = item.querySelector('.stat-number');
-        const duration = 1500;
-        const step = Math.max(1, Math.floor(target / (duration / 50)));
-
-        let count = 0;
-        const timer = setInterval(() => {
-          count += step;
-          if (count >= target) {
-            display.textContent = target;
-            clearInterval(timer);
-          } else {
-            display.textContent = count;
-          }
-        }, 50);
-      });
-    }
-
-    // 加载推荐数据
-    function loadRecommendations(strategy) {
-      const container = document.getElementById('recommendationContainer');
-
-      // 显示加载状态
-      container.innerHTML = `
-        <div class="loading-container">
-          <div class="quantum-spinner"></div>
-          <p class="mt-3">量子态计算中...</p>
-        </div>
-      `;
-
-      // 如果已缓存该策略的推荐，直接使用
-      if (state.recommendations[strategy]) {
-        renderRecommendations(state.recommendations[strategy]);
-        return;
-      }
-
-      // 模拟API调用
-      setTimeout(() => {
-        // 这里应该是一个AJAX请求到后端API
-        // 模拟不同策略返回不同的推荐结果
-        let recommendations;
-
-        switch(strategy) {
-          case 'hybrid':
-            recommendations = [
-              { id: 1, title: '动漫标题示例', image: 'https://via.placeholder.com/400x250', confidence: 87 },
-              { id: 2, title: '进击的巨人', image: 'https://via.placeholder.com/400x250', confidence: 93 },
-              { id: 3, title: '鬼灭之刃', image: 'https://via.placeholder.com/400x250', confidence: 81 },
-              { id: 4, title: '间谍过家家', image: 'https://via.placeholder.com/400x250', confidence: 75 }
-            ];
-            break;
-          case 'cf':
-            recommendations = [
-              { id: 5, title: '约定的梦幻岛', image: 'https://via.placeholder.com/400x250', confidence: 89 },
-              { id: 6, title: '辉夜大小姐想让我告白', image: 'https://via.placeholder.com/400x250', confidence: 85 },
-              { id: 7, title: '五等分的新娘', image: 'https://via.placeholder.com/400x250', confidence: 82 },
-              { id: 8, title: '咒术回战', image: 'https://via.placeholder.com/400x250', confidence: 79 }
-            ];
-            break;
-          case 'content':
-            recommendations = [
-              { id: 9, title: '海贼王', image: 'https://via.placeholder.com/400x250', confidence: 91 },
-              { id: 10, title: '火影忍者', image: 'https://via.placeholder.com/400x250', confidence: 88 },
-              { id: 11, title: '一拳超人', image: 'https://via.placeholder.com/400x250', confidence: 84 },
-              { id: 12, title: '钢之炼金术师', image: 'https://via.placeholder.com/400x250', confidence: 77 }
-            ];
-            break;
-          case 'ml':
-            recommendations = [
-              { id: 13, title: '东京喰种', image: 'https://via.placeholder.com/400x250', confidence: 90 },
-              { id: 14, title: '工作细胞', image: 'https://via.placeholder.com/400x250', confidence: 87 },
-              { id: 15, title: '刀剑神域', image: 'https://via.placeholder.com/400x250', confidence: 83 },
-              { id: 16, title: '命运石之门', image: 'https://via.placeholder.com/400x250', confidence: 81 }
-            ];
-            break;
-          case 'popular':
-            recommendations = [
-              { id: 17, title: '死亡笔记', image: 'https://via.placeholder.com/400x250', confidence: 95 },
-              { id: 18, title: '灌篮高手', image: 'https://via.placeholder.com/400x250', confidence: 93 },
-              { id: 19, title: '龙珠超', image: 'https://via.placeholder.com/400x250', confidence: 92 },
-              { id: 20, title: '名侦探柯南', image: 'https://via.placeholder.com/400x250', confidence: 90 }
-            ];
-            break;
-          default:
-            recommendations = [];
-        }
-
-        // 缓存推荐结果
-        state.recommendations[strategy] = recommendations;
-
-        // 渲染推荐
-        renderRecommendations(recommendations);
-      }, 1200);
-    }
-
-    // 渲染推荐列表
-    function renderRecommendations(recommendations) {
-      const container = document.getElementById('recommendationContainer');
-
-      if (!recommendations || recommendations.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon">
-              <i class="fas fa-film"></i>
-            </div>
-            <h5>暂无推荐</h5>
-            <p>随着您观看更多动漫并进行评分，我们的推荐系统将为您提供更精准的个性化推荐</p>
-            <a href="/anime/list/" class="btn btn-primary mt-2 rounded-pill">
-              <i class="fas fa-play me-1"></i>浏览动漫
-            </a>
-          </div>
-        `;
-        return;
-      }
-
-      // 构建HTML
-      let html = '';
-      recommendations.forEach(anime => {
-        html += `
-          <div class="rec-card">
-            <a href="/anime/${anime.id}/">
-              <div class="rec-img-container">
-                <img src="${anime.image}" alt="${anime.title}">
-              </div>
-            </a>
-            <div class="rec-content">
-              <h5 class="rec-title" title="${anime.title}">${anime.title}</h5>
-              <div class="rec-confidence">
-                <div class="d-flex justify-content-between small mb-1">
-                  <span>匹配度</span>
-                  <span>${anime.confidence}%</span>
-                </div>
-                <div class="confidence-bar">
-                  <div class="confidence-level" style="width: 0%"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        `;
-      });
-
-      container.innerHTML = html;
-
-      // 动画展示置信度条
-      setTimeout(() => {
-        document.querySelectorAll('.confidence-level').forEach((bar, index) => {
-          const confidence = recommendations[index].confidence;
-          bar.style.width = `${confidence}%`;
-        });
-      }, 100);
-    }
-
-    // 加载用户活动数据
-    function loadUserActivities() {
-      // 异步加载评分数据
-      setTimeout(() => {
-        // 这里应该是AJAX请求或模板变量
-        const ratings = {{ user_ratings|default:"[]"|safe }};
-
-        state.ratings = ratings;
-        renderRatings(ratings);
-      }, 1500);
-
-      // 异步加载评论数据
-      setTimeout(() => {
-        // 这里应该是AJAX请求或模板变量
-        const comments = {{ user_comments|default:"[]"|safe }};
-
-        state.comments = comments;
-        renderComments(comments);
-      }, 1800);
-    }
-
-    // 渲染评分记录
-    function renderRatings(ratings) {
-      const container = document.getElementById('ratingsContainer');
-
-      if (!ratings || ratings.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon">
-              <i class="fas fa-star"></i>
-            </div>
-            <h5>暂无评分记录</h5>
-            <p>您还没有给任何动漫评分，开始评分将帮助我们为您提供更准确的推荐</p>
-            <a href="/anime/list/" class="btn btn-primary mt-2 rounded-pill">
-              <i class="fas fa-play me-1"></i>开始评分
-            </a>
-          </div>
-        `;
-        return;
-      }
-
-      // 构建HTML
-      let html = '<div class="activities-list">';
-      ratings.forEach(rating => {
-        // 生成星级HTML
-        let starsHtml = '';
-        for (let i = 1; i <= 5; i++) {
-          if (i <= Math.floor(rating.rating)) {
-            starsHtml += '<i class="fas fa-star text-warning"></i>';
-          } else if (i - 0.5 <= rating.rating) {
-            starsHtml += '<i class="fas fa-star-half-alt text-warning"></i>';
-          } else {
-            starsHtml += '<i class="far fa-star text-warning"></i>';
-          }
-        }
-
-        html += `
-          <div class="activity-item">
-            <div class="activity-header">
-              <div class="activity-title">
-                <a href="/anime/${rating.animeId}/">${rating.animeTitle}</a>
-              </div>
-              <div class="activity-date">${rating.date}</div>
-            </div>
-            <div class="activity-content">
-              评分: ${starsHtml} <span class="ms-1">${rating.rating}</span>
-            </div>
-          </div>
-        `;
-      });
-      html += '</div>';
-
-      container.innerHTML = html;
-    }
-
-    // 渲染评论记录
-    function renderComments(comments) {
-      const container = document.getElementById('commentsContainer');
-
-      if (!comments || comments.length === 0) {
-        container.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon">
-              <i class="fas fa-comment"></i>
-            </div>
-            <h5>暂无评论记录</h5>
-            <p>您还没有发表任何评论</p>
-          </div>
-        `;
-        return;
-      }
-
-      // 构建HTML
-      let html = '<div class="activities-list">';
-      comments.forEach(comment => {
-        html += `
-          <div class="activity-item">
-            <div class="activity-header">
-              <div class="activity-title">
-                <a href="/anime/${comment.animeId}/">${comment.animeTitle}</a>
-              </div>
-              <div class="activity-date">${comment.date}</div>
-            </div>
-            <div class="activity-content">
-              ${comment.content}
-            </div>
-          </div>
-        `;
-      });
-      html += '</div>';
-
-      container.innerHTML = html;
     }
   </script>
 </body>

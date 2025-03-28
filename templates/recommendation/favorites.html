@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+
+{% block title %}我的收藏 - 量子态动漫推荐系统{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="fas fa-heart text-danger me-2"></i>我的收藏
+            </h1>
+            <p class="text-muted">您收藏的所有动漫都在这里</p>
+        </div>
+    </div>
+
+    <div class="row">
+        {% if favorites %}
+            {% for favorite in favorites %}
+                <div class="col-md-4 col-lg-3 mb-4">
+                    <div class="card h-100 anime-card">
+                        <a href="{% url 'anime:anime_detail' favorite.anime.slug %}">
+                            {% if favorite.anime.cover %}
+                                <img src="{{ favorite.anime.cover.url }}" class="card-img-top" alt="{{ favorite.anime.title }}" style="height: 200px; object-fit: cover;">
+                            {% else %}
+                                <img src="/static/images/no-image.jpg" class="card-img-top" alt="{{ favorite.anime.title }}" style="height: 200px; object-fit: cover;">
+                            {% endif %}
+                        </a>
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <a href="{% url 'anime:anime_detail' favorite.anime.slug %}" class="text-decoration-none text-dark">
+                                    {{ favorite.anime.title }}
+                                </a>
+                            </h5>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <div class="anime-rating">
+                                    <i class="fas fa-star text-warning"></i>
+                                    <span>{{ favorite.anime.rating_avg|floatformat:1 }}/5.0</span>
+                                </div>
+                                <small class="text-muted">收藏于: {{ favorite.timestamp|date:"Y-m-d" }}</small>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-white">
+                            <button class="btn btn-outline-danger btn-sm w-100 unfavorite-btn" data-anime-id="{{ favorite.anime.id }}">
+                                <i class="fas fa-heart-broken me-1"></i> 取消收藏
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12 text-center py-5">
+                <div class="empty-state">
+                    <i class="far fa-heart fa-4x text-muted mb-3"></i>
+                    <h4>您还没有收藏任何动漫</h4>
+                    <p class="text-muted">浏览动漫并点击收藏按钮，收藏喜欢的动漫</p>
+                    <a href="{% url 'anime:anime_list' %}" class="btn btn-primary mt-3">
+                        <i class="fas fa-search me-2"></i>浏览动漫
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if favorites.has_other_pages %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        {% if favorites.has_previous %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1" aria-label="First">
+                                    <span aria-hidden="true">&laquo;&laquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ favorites.previous_page_number }}" aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" aria-label="First">
+                                    <span aria-hidden="true">&laquo;&laquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" aria-label="Previous">
+                                    <span aria-hidden="true">&laquo;</span>
+                                </a>
+                            </li>
+                        {% endif %}
+
+                        {% for i in favorites.paginator.page_range %}
+                            {% if favorites.number == i %}
+                                <li class="page-item active">
+                                    <a class="page-link" href="#">{{ i }}</a>
+                                </li>
+                            {% elif i >= favorites.number|add:'-2' and i <= favorites.number|add:'2' %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if favorites.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ favorites.next_page_number }}" aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ favorites.paginator.num_pages }}" aria-label="Last">
+                                    <span aria-hidden="true">&raquo;&raquo;</span>
+                                </a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" aria-label="Next">
+                                    <span aria-hidden="true">&raquo;</span>
+                                </a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#" aria-label="Last">
+                                    <span aria-hidden="true">&raquo;&raquo;</span>
+                                </a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- 收藏操作的JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取CSRF Token
+    function getCsrfToken() {
+        return document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+               document.cookie.split('; ')
+                   .find(row => row.startsWith('csrftoken='))
+                   ?.split('=')[1];
+    }
+
+    // 取消收藏功能
+    document.querySelectorAll('.unfavorite-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const animeId = this.dataset.animeId;
+            const card = this.closest('.col-md-4');
+
+            if (confirm('确定要取消收藏这部动漫吗？')) {
+                fetch(`/anime/favorite/${animeId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCsrfToken()
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // 移除卡片并显示提示
+                        card.classList.add('animate__animated', 'animate__fadeOut');
+                        setTimeout(() => {
+                            card.remove();
+
+                            // 检查是否还有收藏项
+                            const remainingCards = document.querySelectorAll('.anime-card');
+                            if (remainingCards.length === 0) {
+                                // 如果没有收藏项，显示空状态
+                                const container = document.querySelector('.row');
+                                container.innerHTML = `
+                                    <div class="col-12 text-center py-5">
+                                        <div class="empty-state">
+                                            <i class="far fa-heart fa-4x text-muted mb-3"></i>
+                                            <h4>您还没有收藏任何动漫</h4>
+                                            <p class="text-muted">浏览动漫并点击收藏按钮，收藏喜欢的动漫</p>
+                                            <a href="{% url 'anime:anime_list' %}" class="btn btn-primary mt-3">
+                                                <i class="fas fa-search me-2"></i>浏览动漫
+                                            </a>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                        }, 500);
+                    } else {
+                        alert('取消收藏失败: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('取消收藏出错:', error);
+                    alert('发生错误，请稍后再试');
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,18 +1,20 @@
-// Fix 1: Update recommendation-engine.js
-// This ensures proper API URL handling with appropriate error recovery
+// 量子态推荐引擎 - 完全重构版
+// 增强错误处理、备用数据机制和缓存策略
 
 class QuantumRecommendationEngine {
   constructor() {
-    // Ensure the API endpoint has the correct path
+    // 确保API端点路径正确
     this.apiEndpoint = '/recommendations/api/recommendations/';
     this.cache = new Map();
     this.pendingRequests = new Map();
-    this.fallbackRecommendations = {}; // Fallback data for each strategy
+    this.fallbackRecommendations = {}; // 为每种策略准备备用数据
     this.initializeFallbackData();
+
+    console.log("量子态推荐引擎初始化完成");
   }
 
   initializeFallbackData() {
-    // Pre-populate with some fallback recommendations in case API fails
+    // 预填充备用推荐数据，以防API失败时使用
     this.fallbackRecommendations = {
       'hybrid': this.generateFallbackData('hybrid'),
       'cf': this.generateFallbackData('cf'),
@@ -23,7 +25,7 @@ class QuantumRecommendationEngine {
   }
 
   generateFallbackData(strategy) {
-    // Generate some basic fallback data based on strategy
+    // 根据策略生成相应类型的备用数据
     const baseTitles = {
       'hybrid': ['多维度推荐动漫', '混合算法精选', '量子推荐热门作品', '个性化精选'],
       'cf': ['猜你喜欢', '相似用户也在看', '基于你的口味', '协同算法推荐'],
@@ -37,7 +39,7 @@ class QuantumRecommendationEngine {
     return titles.map((title, index) => ({
       id: 1000 + index,
       title: title,
-      cover_url: `/static/images/anime-placeholder-${(index % 4) + 1}.jpg`,
+      cover_url: `/static/images/default-cover.jpg`, // 使用确认存在的默认图片
       rating: (4 + Math.random()).toFixed(1),
       score: Math.floor(70 + Math.random() * 25),
       url: '/anime/list/'
@@ -128,6 +130,7 @@ class QuantumRecommendationEngine {
    */
   clearCache() {
     this.cache.clear();
+    console.log("推荐引擎缓存已清除");
   }
 
   /**

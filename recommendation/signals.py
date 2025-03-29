@@ -29,10 +29,11 @@ def update_anime_rating_stats(sender, instance, created, **kwargs):
     anime.save(update_fields=['rating_avg', 'rating_count'])
 
     # 更新用户评分计数
-    user_profile = instance.user.profile
-    rating_count = UserRating.objects.filter(user=instance.user).count()
-    user_profile.rating_count = rating_count
-    user_profile.save(update_fields=['rating_count'])
+    if not getattr(instance, '_skip_profile_update', False):
+        user_profile = instance.user.profile
+        rating_count = UserRating.objects.filter(user=instance.user).count()
+        user_profile.rating_count = rating_count
+        user_profile.save(update_fields=['rating_count'])
 
     # 更新用户偏好
     update_user_preference(instance.user, anime)

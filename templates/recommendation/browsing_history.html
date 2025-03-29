@@ -67,6 +67,9 @@
 {% endblock %}
 
 {% block content %}
+<!-- 添加CSRF令牌，用于所有AJAX请求 -->
+{% csrf_token %}
+
 <div class="container py-5">
     <div class="row mb-4">
         <div class="col-12">
@@ -168,11 +171,20 @@
     </div>
     {% endif %}
 </div>
+
+<!-- Toast容器 -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3"></div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // 确保jQuery已加载
+    if (typeof jQuery === 'undefined') {
+        console.error('jQuery未加载！Toast通知将无法正常工作。');
+        return;
+    }
+
     // 移除单个历史记录
     const removeButtons = document.querySelectorAll('.remove-history');
     removeButtons.forEach(button => {
@@ -203,27 +215,45 @@ document.addEventListener('DOMContentLoaded', function() {
                 'X-CSRFToken': getCsrfToken()
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('网络响应不正常');
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 // 移除元素并显示成功消息
-                document.querySelector(`.remove-history[data-id="${id}"]`)
-                    .closest('.history-item')
-                    .remove();
+                const historyItem = document.querySelector(`.remove-history[data-id="${id}"]`)
+                    .closest('.history-item');
+
+                // 添加淡出动画
+                historyItem.style.transition = 'opacity 0.3s, transform 0.3s';
+                historyItem.style.opacity = '0';
+                historyItem.style.transform = 'translateY(-10px)';
+
+                setTimeout(() => {
+                    historyItem.remove();
+
+                    // 如果没有剩余历史记录，刷新页面显示空状态
+                    if (document.querySelectorAll('.history-item').length === 0) {
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                }, 300);
 
                 showToast('成功', '已从浏览历史中移除');
 
-                // 如果没有剩余历史记录，刷新页面显示空状态
-                if (document.querySelectorAll('.history-item').length === 0) {
-                    setTimeout(() => location.reload(), 1000);
-                }
+                // 触发自定义事件，用于跨页面通信
+                document.dispatchEvent(new CustomEvent('historyUpdated', {
+                    detail: { removedId: id }
+                }));
             } else {
-                showToast('错误', data.error || '操作失败，请稍后再试');
+                showToast('错误', data.error || '操作失败，请稍后再试', 'danger');
             }
         })
         .catch(error => {
             console.error('移除历史记录失败:', error);
-            showToast('错误', '操作失败，请稍后再试');
+            showToast('错误', '操作失败，请稍后再试', 'danger');
         });
     }
 
@@ -236,49 +266,63 @@ document.addEventListener('DOMContentLoaded', function() {
                 'X-CSRFToken': getCsrfToken()
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('网络响应不正常');
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 showToast('成功', '已清除全部浏览历史');
+
+                // 触发自定义事件，用于跨页面通信
+                document.dispatchEvent(new CustomEvent('historyCleared'));
+
                 setTimeout(() => location.reload(), 1000);
             } else {
-                showToast('错误', data.error || '操作失败，请稍后再试');
+                showToast('错误', data.error || '操作失败，请稍后再试', 'danger');
             }
         })
         .catch(error => {
             console.error('清除历史记录失败:', error);
-            showToast('错误', '操作失败，请稍后再试');
+            showToast('错误', '操作失败，请稍后再试', 'danger');
         });
     }
 
-    // 获取CSRF Token
+    // 获取CSRF Token - 首先从表单中获取，然后从cookie获取
     function getCsrfToken() {
-        return document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
-               document.cookie.split('; ')
-                   .find(row => row.startsWith('csrftoken='))
-                   ?.split('=')[1];
+        return document.querySelector('input[name="csrfmiddlewaretoken"]').value;
     }
 
-    // 显示Toast通知
-    function showToast(title, message) {
+    // 显示Toast通知 - 使用Bootstrap 5 Toast组件
+    function showToast(title, message, type = 'success') {
+        const toastId = 'toast-' + Date.now();
         const toastHtml = `
-        <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 5">
-            <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="toast-header">
-                    <strong class="me-auto">${title}</strong>
-                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-                <div class="toast-body">${message}</div>
+        <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-${type} text-white">
+                <strong class="me-auto">${title}</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
             </div>
+            <div class="toast-body">${message}</div>
         </div>`;
 
-        // 添加到页面
-        const $toast = $(toastHtml).appendTo('body');
+        // 添加到Toast容器
+        const $toastContainer = document.querySelector('.toast-container');
+        $toastContainer.insertAdjacentHTML('beforeend', toastHtml);
 
-        // 3秒后自动移除
-        setTimeout(function() {
-            $toast.remove();
-        }, 3000);
+        // 使用Bootstrap的方式初始化Toast
+        const toastElement = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastElement, {
+            autohide: true,
+            delay: 3000
+        });
+        toast.show();
+
+        // 当Toast隐藏后移除DOM元素
+        toastElement.addEventListener('hidden.bs.toast', function () {
+            toastElement.remove();
+        });
     }
 });
 </script>

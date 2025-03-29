@@ -22,6 +22,7 @@ urlpatterns = [
 
     # 用户收藏页面
     path('favorites/', views.user_favorites, name='favorites'),
+    path('favorite/<int:anime_id>/', views.toggle_favorite, name='toggle_favorite'),
 
     # 浏览历史
     path('browsing-history/', views.browsing_history, name='browsing_history'),
@@ -48,5 +49,11 @@ urlpatterns = [
 
     path('api/visualization/genre-heatmap/', views.visualization_genre_heatmap, name='visualization_genre_heatmap'),
 
+    path('user-ratings/', views.user_ratings, name='user_ratings'),
+
+    # 添加到recommendation/urls.py的urlpatterns列表
+    path('api/dashboard/seasonal/', views.dashboard_seasonal_api, name='dashboard_seasonal_api'),
+    path('api/dashboard/similar/', views.dashboard_similar_api, name='dashboard_similar_api'),
+    path('api/dashboard/classics/', views.dashboard_classics_api, name='dashboard_classics_api'),
 
 ]

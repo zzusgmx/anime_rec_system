@@ -17,12 +17,12 @@
             <span class="comment-date">{{ comment.timestamp|date:"Y-m-d H:i" }}</span>
         </div>
         <div class="comment-actions">
-            <button class="btn btn-sm comment-like-btn {% if user_liked %}active{% endif %}" 
+            <button class="btn btn-sm comment-like-btn {% if user_liked %}active{% endif %}"
                     data-comment-id="{{ comment.id }}">
                 <i class="{% if user_liked %}fas{% else %}far{% endif %} fa-heart"></i>
                 <span class="like-count">{{ comment.like_count }}</span>
             </button>
-            
+
             {% if user.is_authenticated and comment.user == user %}
             <div class="dropdown">
                 <button class="btn btn-sm" data-bs-toggle="dropdown">
@@ -40,11 +40,11 @@
             {% endif %}
         </div>
     </div>
-    
+
     <div class="comment-content" id="comment-content-{{ comment.id }}">
         {{ comment.content|linebreaks }}
     </div>
-    
+
     <div class="comment-edit-form d-none" id="comment-edit-form-{{ comment.id }}">
         <textarea class="form-control edit-comment-content">{{ comment.content }}</textarea>
         <div class="mt-2">

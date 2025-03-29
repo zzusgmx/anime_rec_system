@@ -1,0 +1,180 @@
+{% extends 'base.html' %}
+
+{% block title %}我的评分记录 - 量子态动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/interaction.css">
+<link rel="stylesheet" href="/static/recommendation/css/recommendation-enhanced.css">
+<style>
+  .rating-list {
+    margin-top: 20px;
+  }
+
+  .rating-item {
+    background: #fff;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    position: relative;
+    border-left: 3px solid #6d28d9;
+  }
+
+  .rating-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .rating-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .anime-info {
+    display: flex;
+    align-items: center;
+  }
+
+  .anime-cover {
+    width: 60px;
+    height: 80px;
+    border-radius: 5px;
+    margin-right: 15px;
+    object-fit: cover;
+  }
+
+  .anime-title {
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+
+  .anime-title a {
+    color: #1e293b;
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  .anime-title a:hover {
+    color: #6d28d9;
+  }
+
+  .rating-date {
+    font-size: 0.85rem;
+    color: #64748b;
+  }
+
+  .rating-value {
+    display: flex;
+    align-items: center;
+    padding: 5px 10px;
+    background: rgba(109, 40, 217, 0.1);
+    border-radius: 30px;
+    font-weight: 600;
+    color: #6d28d9;
+  }
+
+  .rating-value i {
+    margin-right: 5px;
+    color: #f59e0b;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+    color: #cbd5e1;
+    margin-bottom: 20px;
+  }
+
+  .empty-state h4 {
+    margin-bottom: 10px;
+    color: #334155;
+  }
+
+  .empty-state p {
+    color: #64748b;
+    margin-bottom: 20px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="{% url 'recommendation:user_dashboard' %}">推荐中心</a></li>
+          <li class="breadcrumb-item active" aria-current="page">我的评分记录</li>
+        </ol>
+      </nav>
+
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fs-2 mb-0">我的评分记录</h1>
+        <a href="{% url 'recommendation:user_dashboard' %}" class="btn btn-outline-primary">
+          <i class="fas fa-arrow-left me-1"></i>返回推荐中心
+        </a>
+      </div>
+
+      {% if user_ratings %}
+        <div class="rating-list">
+          {% for rating in user_ratings %}
+            <div class="rating-item">
+              <div class="rating-header">
+                <div class="anime-info">
+                  {% if rating.anime.cover %}
+                    <img src="{{ rating.anime.cover.url }}" alt="{{ rating.anime.title }}" class="anime-cover">
+                  {% else %}
+                    <div class="anime-cover bg-light d-flex align-items-center justify-content-center">
+                      <i class="fas fa-image text-muted"></i>
+                    </div>
+                  {% endif %}
+
+                  <div>
+                    <h3 class="anime-title">
+                      <a href="{% url 'anime:anime_detail' rating.anime.slug %}">{{ rating.anime.title }}</a>
+                    </h3>
+                    <div class="rating-date">
+                      <i class="far fa-clock me-1"></i>{{ rating.timestamp|date:"Y-m-d H:i" }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="rating-value">
+                  <i class="fas fa-star"></i>{{ rating.rating }}
+                </div>
+              </div>
+
+              <div class="d-flex mt-3">
+                <a href="{% url 'anime:anime_detail' rating.anime.slug %}" class="btn btn-sm btn-outline-primary">
+                  <i class="fas fa-external-link-alt me-1"></i>查看动漫
+                </a>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-icon">
+            <i class="far fa-star"></i>
+          </div>
+          <h4>暂无评分记录</h4>
+          <p>您还没有对任何动漫进行评分，开始探索并为您喜欢的动漫评分吧！</p>
+          <a href="{% url 'anime:anime_list' %}" class="btn btn-primary">
+            <i class="fas fa-search me-1"></i>浏览动漫
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

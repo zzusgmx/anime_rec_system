@@ -1,200 +1,492 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}我的收藏 - 量子态动漫推荐系统{% endblock %}
 
-{% block content %}
-<div class="container py-4">
-    <div class="row mb-4">
-        <div class="col-12">
-            <h1 class="mb-4">
-                <i class="fas fa-heart text-danger me-2"></i>我的收藏
-            </h1>
-            <p class="text-muted">您收藏的所有动漫都在这里</p>
-        </div>
-    </div>
+{% block extra_css %}
+<style>
+  /* 页面头部样式 */
+  .page-header {
+    background: linear-gradient(135deg, #6d28d9, #8b5cf6, #10b981);
+    color: white;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 0 0 20px 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    position: relative;
+    overflow: hidden;
+  }
 
-    <div class="row">
-        {% if favorites %}
-            {% for favorite in favorites %}
-                <div class="col-md-4 col-lg-3 mb-4">
-                    <div class="card h-100 anime-card">
-                        <a href="{% url 'anime:anime_detail' favorite.anime.slug %}">
-                            {% if favorite.anime.cover %}
-                                <img src="{{ favorite.anime.cover.url }}" class="card-img-top" alt="{{ favorite.anime.title }}" style="height: 200px; object-fit: cover;">
-                            {% else %}
-                                <img src="/static/images/no-image.jpg" class="card-img-top" alt="{{ favorite.anime.title }}" style="height: 200px; object-fit: cover;">
-                            {% endif %}
-                        </a>
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                <a href="{% url 'anime:anime_detail' favorite.anime.slug %}" class="text-decoration-none text-dark">
-                                    {{ favorite.anime.title }}
-                                </a>
-                            </h5>
-                            <div class="d-flex justify-content-between align-items-center mt-2">
-                                <div class="anime-rating">
-                                    <i class="fas fa-star text-warning"></i>
-                                    <span>{{ favorite.anime.rating_avg|floatformat:1 }}/5.0</span>
-                                </div>
-                                <small class="text-muted">收藏于: {{ favorite.timestamp|date:"Y-m-d" }}</small>
-                            </div>
-                        </div>
-                        <div class="card-footer bg-white">
-                            <button class="btn btn-outline-danger btn-sm w-100 unfavorite-btn" data-anime-id="{{ favorite.anime.id }}">
-                                <i class="fas fa-heart-broken me-1"></i> 取消收藏
-                            </button>
-                        </div>
-                    </div>
+  .page-header::before {
+    content: '';
+    position: absolute;
+    top: -20%;
+    left: -10%;
+    width: 120%;
+    height: 150%;
+    background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+CiAgPGRlZnM+CiAgICA8ZmlsdGVyIGlkPSJub2lzZSIgeD0iMCIgeT0iMCIgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSI+CiAgICAgIDxmZVR1cmJ1bGVuY2UgdHlwZT0iZnJhY3RhbE5vaXNlIiBiYXNlRnJlcXVlbmN5PSIwLjY1IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIiByZXN1bHQ9Im5vaXNlIi8+CiAgICAgIDxmZUJsZW5kIGluPSJub2lzZSIgaW4yPSJTb3VyY2VHcmFwaGljIiBtb2RlPSJvdmVybGF5IiByZXN1bHQ9ImJsZW5kZWQiLz4KICAgIDwvZmlsdGVyPgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ0cmFuc3BhcmVudCIgZmlsdGVyPSJ1cmwoI25vaXNlKSIgb3BhY2l0eT0iMC4wNSIvPgo8L3N2Zz4=');
+    opacity: 0.3;
+    transform: rotate(10deg);
+  }
+
+  .page-header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    position: relative;
+  }
+
+  .page-header p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    max-width: 600px;
+    position: relative;
+  }
+
+  /* 卡片样式 */
+  .favorite-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .favorite-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  .card-img-container {
+    position: relative;
+    overflow: hidden;
+    height: 200px;
+  }
+
+  .card-img-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+  }
+
+  .favorite-card:hover .card-img-container img {
+    transform: scale(1.05);
+  }
+
+  .anime-rating {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .anime-rating i {
+    color: #fbbf24;
+  }
+
+  .card-body {
+    flex: 1;
+    padding: 1rem;
+  }
+
+  .card-footer {
+    padding: 1rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  /* 空状态样式 */
+  .empty-state {
+    text-align: center;
+    padding: 3rem 0;
+  }
+
+  .empty-icon {
+    font-size: 4rem;
+    color: #cbd5e1;
+    margin-bottom: 1rem;
+  }
+
+  .empty-state h4 {
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+
+  .empty-state p {
+    color: #64748b;
+    max-width: 500px;
+    margin: 0 auto 1.5rem;
+  }
+
+  /* 量子粒子效果 */
+  .quantum-particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #8b5cf6;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  /* 取消收藏按钮 */
+  .unfavorite-btn {
+    border-radius: 50px;
+    transition: all 0.3s ease;
+  }
+
+  .unfavorite-btn:hover {
+    background-color: #dc2626;
+    color: white;
+    transform: translateY(-2px);
+  }
+
+  /* 分页样式增强 */
+  .pagination {
+    margin-top: 2rem;
+  }
+
+  .pagination .page-item .page-link {
+    border-radius: 50%;
+    margin: 0 3px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+  }
+
+  .pagination .page-item.active .page-link {
+    background-color: #6d28d9;
+    border-color: #6d28d9;
+  }
+
+  .pagination .page-item .page-link:hover {
+    background-color: #8b5cf6;
+    color: white;
+    transform: translateY(-2px);
+  }
+
+  .pagination-info {
+    text-align: center;
+    color: #6b7280;
+    margin-bottom: 1rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- CSRF Token -->
+{% csrf_token %}
+
+<!-- 页面头部 -->
+<div class="page-header">
+  <div class="container">
+    <h1><i class="fas fa-heart me-2"></i>我的收藏</h1>
+    <p>管理您收藏的所有动漫作品</p>
+  </div>
+</div>
+
+<div class="container">
+  <div class="row">
+    <div class="col-lg-8">
+      {% if favorites %}
+        <div class="row">
+          {% for favorite in favorites %}
+            <div class="col-md-6 col-lg-4 mb-4">
+              <div class="favorite-card">
+                <div class="card-img-container">
+                  <a href="{% url 'anime:anime_detail' favorite.anime.slug %}">
+                    {% if favorite.anime.cover %}
+                      <img src="{{ favorite.anime.cover.url }}" alt="{{ favorite.anime.title }}">
+                    {% else %}
+                      <img src="/static/images/no-image.jpg" alt="{{ favorite.anime.title }}">
+                    {% endif %}
+                  </a>
                 </div>
-            {% endfor %}
-        {% else %}
-            <div class="col-12 text-center py-5">
-                <div class="empty-state">
-                    <i class="far fa-heart fa-4x text-muted mb-3"></i>
-                    <h4>您还没有收藏任何动漫</h4>
-                    <p class="text-muted">浏览动漫并点击收藏按钮，收藏喜欢的动漫</p>
-                    <a href="{% url 'anime:anime_list' %}" class="btn btn-primary mt-3">
-                        <i class="fas fa-search me-2"></i>浏览动漫
+                <div class="card-body">
+                  <h5 class="card-title">
+                    <a href="{% url 'anime:anime_detail' favorite.anime.slug %}" class="text-decoration-none text-dark">
+                      {{ favorite.anime.title }}
                     </a>
+                  </h5>
+                  <div class="d-flex justify-content-between align-items-center mt-2">
+                    <div class="anime-rating">
+                      <i class="fas fa-star"></i>
+                      <span>{{ favorite.anime.rating_avg|floatformat:1 }}/5.0</span>
+                    </div>
+                    <small class="text-muted">收藏于: {{ favorite.timestamp|date:"Y-m-d" }}</small>
+                  </div>
                 </div>
+                <div class="card-footer bg-white">
+                  <button class="btn btn-outline-danger btn-sm w-100 unfavorite-btn" data-anime-id="{{ favorite.anime.id }}">
+                    <i class="fas fa-heart-broken me-1"></i> 取消收藏
+                  </button>
+                </div>
+              </div>
             </div>
+          {% endfor %}
+        </div>
+
+        <!-- 分页 -->
+        {% if favorites.has_other_pages %}
+          <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+              {% if favorites.has_previous %}
+                <li class="page-item">
+                  <a class="page-link" href="?page=1" title="第一页"><i class="fas fa-angle-double-left"></i></a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ favorites.previous_page_number }}" title="上一页"><i class="fas fa-angle-left"></i></a>
+                </li>
+              {% else %}
+                <li class="page-item disabled">
+                  <a class="page-link" href="#"><i class="fas fa-angle-double-left"></i></a>
+                </li>
+                <li class="page-item disabled">
+                  <a class="page-link" href="#"><i class="fas fa-angle-left"></i></a>
+                </li>
+              {% endif %}
+
+              {% for i in favorites.paginator.page_range %}
+                {% if favorites.number == i %}
+                  <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+                {% elif i > favorites.number|add:'-3' and i < favorites.number|add:'3' %}
+                  <li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>
+                {% endif %}
+              {% endfor %}
+
+              {% if favorites.has_next %}
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ favorites.next_page_number }}" title="下一页"><i class="fas fa-angle-right"></i></a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ favorites.paginator.num_pages }}" title="最后一页"><i class="fas fa-angle-double-right"></i></a>
+                </li>
+              {% else %}
+                <li class="page-item disabled">
+                  <a class="page-link" href="#"><i class="fas fa-angle-right"></i></a>
+                </li>
+                <li class="page-item disabled">
+                  <a class="page-link" href="#"><i class="fas fa-angle-double-right"></i></a>
+                </li>
+              {% endif %}
+            </ul>
+          </nav>
+        {% endif %}
+
+      {% else %}
+        <!-- 空状态 -->
+        <div class="empty-state">
+          <div class="empty-icon">
+            <i class="far fa-heart"></i>
+          </div>
+          <h4>您还没有收藏任何动漫</h4>
+          <p class="text-muted">浏览动漫并点击收藏按钮，收藏喜欢的动漫</p>
+          <a href="{% url 'anime:anime_list' %}" class="btn btn-primary mt-3 rounded-pill">
+            <i class="fas fa-search me-2"></i>浏览动漫
+          </a>
+        </div>
+      {% endif %}
+    {% if favorites.paginator.count > 6 %}
+          <div class="pagination-info mb-3">
+            显示第 {{ favorites.start_index }} - {{ favorites.end_index }} 项，共 {{ favorites.paginator.count }} 项
+          </div>
         {% endif %}
     </div>
 
-    {% if favorites.has_other_pages %}
-        <div class="row mt-4">
-            <div class="col-12">
-                <nav aria-label="Page navigation">
-                    <ul class="pagination justify-content-center">
-                        {% if favorites.has_previous %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page=1" aria-label="First">
-                                    <span aria-hidden="true">&laquo;&laquo;</span>
-                                </a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ favorites.previous_page_number }}" aria-label="Previous">
-                                    <span aria-hidden="true">&laquo;</span>
-                                </a>
-                            </li>
-                        {% else %}
-                            <li class="page-item disabled">
-                                <a class="page-link" href="#" aria-label="First">
-                                    <span aria-hidden="true">&laquo;&laquo;</span>
-                                </a>
-                            </li>
-                            <li class="page-item disabled">
-                                <a class="page-link" href="#" aria-label="Previous">
-                                    <span aria-hidden="true">&laquo;</span>
-                                </a>
-                            </li>
-                        {% endif %}
-
-                        {% for i in favorites.paginator.page_range %}
-                            {% if favorites.number == i %}
-                                <li class="page-item active">
-                                    <a class="page-link" href="#">{{ i }}</a>
-                                </li>
-                            {% elif i >= favorites.number|add:'-2' and i <= favorites.number|add:'2' %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ i }}">{{ i }}</a>
-                                </li>
-                            {% endif %}
-                        {% endfor %}
-
-                        {% if favorites.has_next %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ favorites.next_page_number }}" aria-label="Next">
-                                    <span aria-hidden="true">&raquo;</span>
-                                </a>
-                            </li>
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ favorites.paginator.num_pages }}" aria-label="Last">
-                                    <span aria-hidden="true">&raquo;&raquo;</span>
-                                </a>
-                            </li>
-                        {% else %}
-                            <li class="page-item disabled">
-                                <a class="page-link" href="#" aria-label="Next">
-                                    <span aria-hidden="true">&raquo;</span>
-                                </a>
-                            </li>
-                            <li class="page-item disabled">
-                                <a class="page-link" href="#" aria-label="Last">
-                                    <span aria-hidden="true">&raquo;&raquo;</span>
-                                </a>
-                            </li>
-                        {% endif %}
-                    </ul>
-                </nav>
-            </div>
+    <div class="col-lg-4">
+      <!-- 侧边栏 -->
+      <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+          <i class="fas fa-lightbulb me-1"></i> 收藏提示
         </div>
-    {% endif %}
-</div>
+        <div class="card-body">
+          <h5 class="card-title">收藏功能使用指南</h5>
+          <p class="card-text">通过收藏功能，您可以:</p>
+          <ul class="mb-0">
+            <li>保存感兴趣的动漫作品</li>
+            <li>追踪您最喜欢的系列</li>
+            <li>获得基于收藏的个性化推荐</li>
+            <li>快速访问想要观看的作品</li>
+          </ul>
+        </div>
+      </div>
 
-<!-- 收藏操作的JavaScript -->
+      <!-- 收藏统计 -->
+      {% if favorites and favorites.paginator.count > 0 %}
+      <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+          <i class="fas fa-chart-pie me-1"></i> 收藏统计
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span>总收藏数:</span>
+            <span class="badge bg-primary rounded-pill">{{ favorites.paginator.count }}</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span>当前页:</span>
+            <span class="badge bg-info rounded-pill">{{ favorites.number }}/{{ favorites.paginator.num_pages }}</span>
+          </div>
+          <div class="d-flex justify-content-between align-items-center">
+            <span>每页显示:</span>
+            <span class="badge bg-secondary rounded-pill">6 项</span>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- 快速链接 -->
+<div class="card">
+  <div class="card-header bg-primary text-white">
+    <i class="fas fa-link me-1"></i> 快速链接
+  </div>
+  <div class="card-body">
+    <div class="list-group">
+      <a href="{% url 'anime:anime_list' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-list me-2"></i>浏览所有动漫
+      </a>
+      <a href="{% url 'anime:anime_type_list' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-tags me-2"></i>动漫类型列表
+      </a>
+      <a href="{% url 'recommendation:recommendations' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-magic me-2"></i>个性化推荐
+      </a>
+      <a href="/profile/" class="list-group-item list-group-item-action">
+        <i class="fas fa-user-cog me-2"></i>管理个人资料
+      </a>
+      <a href="{% url 'recommendation:user_ratings' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-star me-2"></i>我的评分
+      </a>
+      <a href="{% url 'recommendation:browsing_history' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-history me-2"></i>浏览历史
+      </a>
+      <a href="{% url 'recommendation:user_comments' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-comments me-2"></i>我的评论
+      </a>
+      <a href="{% url 'recommendation:user_dashboard' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-chart-line me-2"></i>推荐中心
+      </a>
+    </div>
+  </div>
+</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // 获取CSRF Token
-    function getCsrfToken() {
-        return document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
-               document.cookie.split('; ')
-                   .find(row => row.startsWith('csrftoken='))
-                   ?.split('=')[1];
-    }
+  // 获取CSRF Token
+  function getCsrfToken() {
+    return document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+           document.cookie.split('; ')
+               .find(row => row.startsWith('csrftoken='))
+               ?.split('=')[1];
+  }
 
-    // 取消收藏功能
-    document.querySelectorAll('.unfavorite-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const animeId = this.dataset.animeId;
-            const card = this.closest('.col-md-4');
+  // 取消收藏功能
+  document.querySelectorAll('.unfavorite-btn').forEach(button => {
+    button.addEventListener('click', function() {
+      const animeId = this.dataset.animeId;
+      const card = this.closest('.col-md-6, .col-lg-4');
 
-            if (confirm('确定要取消收藏这部动漫吗？')) {
-                fetch(`/anime/favorite/${animeId}/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCsrfToken()
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // 移除卡片并显示提示
-                        card.classList.add('animate__animated', 'animate__fadeOut');
-                        setTimeout(() => {
-                            card.remove();
+      if (confirm('确定要取消收藏这部动漫吗？')) {
+        // 修复路径：使用正确的命名空间和路由
+        fetch(`/recommendations/favorite/${animeId}/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+          }
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP错误! 状态码: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data.success) {
+            // 添加淡出动画
+            card.style.transition = 'opacity 0.5s, transform 0.5s';
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(-20px)';
 
-                            // 检查是否还有收藏项
-                            const remainingCards = document.querySelectorAll('.anime-card');
-                            if (remainingCards.length === 0) {
-                                // 如果没有收藏项，显示空状态
-                                const container = document.querySelector('.row');
-                                container.innerHTML = `
-                                    <div class="col-12 text-center py-5">
-                                        <div class="empty-state">
-                                            <i class="far fa-heart fa-4x text-muted mb-3"></i>
-                                            <h4>您还没有收藏任何动漫</h4>
-                                            <p class="text-muted">浏览动漫并点击收藏按钮，收藏喜欢的动漫</p>
-                                            <a href="{% url 'anime:anime_list' %}" class="btn btn-primary mt-3">
-                                                <i class="fas fa-search me-2"></i>浏览动漫
-                                            </a>
-                                        </div>
-                                    </div>
-                                `;
-                            }
-                        }, 500);
-                    } else {
-                        alert('取消收藏失败: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('取消收藏出错:', error);
-                    alert('发生错误，请稍后再试');
-                });
-            }
+            setTimeout(() => {
+              card.remove();
+
+              // 检查是否还有收藏项
+              const remainingCards = document.querySelectorAll('.favorite-card');
+              if (remainingCards.length === 0) {
+                // 如果没有收藏项，刷新页面以显示空状态
+                location.reload();
+              }
+            }, 500);
+          } else {
+            console.error('取消收藏失败:', data.error);
+            alert('取消收藏失败: ' + (data.error || '未知错误'));
+          }
+        })
+        .catch(error => {
+          console.error('取消收藏出错:', error);
+          alert(`请求失败: ${error.message}`);
         });
+      }
     });
+  });
+
+  // 创建量子粒子效果
+  function createQuantumParticles() {
+    const container = document.querySelector('.page-header');
+    if (!container) return;
+
+    const numberOfParticles = 20;
+
+    for (let i = 0; i < numberOfParticles; i++) {
+      const particle = document.createElement('div');
+      particle.classList.add('quantum-particle');
+
+      // 随机位置
+      const xPos = Math.random() * 100;
+      const yPos = Math.random() * 100;
+
+      particle.style.left = `${xPos}%`;
+      particle.style.top = `${yPos}%`;
+
+      // 随机大小
+      const size = Math.random() * 5 + 2;
+      particle.style.width = `${size}px`;
+      particle.style.height = `${size}px`;
+
+      // 随机颜色
+      const hue = Math.random() * 60 + 240; // 蓝紫色调
+      particle.style.backgroundColor = `hsl(${hue}, 80%, 70%)`;
+
+      // 随机动画
+      const duration = Math.random() * 10 + 5;
+      const delay = Math.random() * 5;
+
+      particle.style.animation = `float ${duration}s ease-in-out ${delay}s infinite`;
+
+      // 随机透明度
+      particle.style.opacity = Math.random() * 0.5 + 0.3;
+
+      container.appendChild(particle);
+    }
+  }
+
+  // 页面加载完成后初始化粒子效果
+  createQuantumParticles();
 });
 </script>
 {% endblock %}

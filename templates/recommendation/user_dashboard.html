@@ -21,11 +21,10 @@
   <!-- ECharts 库 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.0/echarts.min.js"></script>
 
-  <!-- Dashboard.js 脚本 -->
-  <script src="/static/recommendation/js/dashboard.js" defer></script>
-
-  <!-- 可视化引擎脚本 -->
-  <script src="/static/recommendation/js/visualization.js" defer></script>
+  <!-- 核心脚本预加载 - 量子加速流水线 -->
+  <link rel="preload" href="/static/recommendation/js/dashboard.js" as="script">
+  <link rel="preload" href="/static/recommendation/js/exploration-controller.js" as="script">
+  <link rel="preload" href="/static/recommendation/js/visualization.js" as="script">
 
   <style>
     :root {
@@ -302,6 +301,10 @@
       opacity: 1;
     }
 
+    .quantum-strategy-card.active::before {
+      opacity: 1;
+    }
+
     .quantum-strategy-icon {
       font-size: 2.2rem;
       margin-bottom: 0.8rem;
@@ -565,6 +568,56 @@
       transform: translateX(-50%) translateY(-10px);
     }
 
+    /* 仪表板标签 */
+    .dashboard-tabs {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+    }
+
+    .dashboard-tab {
+      padding: 0.75rem 1.25rem;
+      background: #fff;
+      border: none;
+      border-radius: 10px;
+      font-weight: 500;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      white-space: nowrap;
+    }
+
+    .dashboard-tab:hover {
+      background: #f1f5f9;
+      transform: translateY(-2px);
+      color: #334155;
+    }
+
+    .dashboard-tab.active {
+      background: var(--quantum-gradient);
+      color: white;
+      box-shadow: 0 4px 12px rgba(109, 40, 217, 0.2);
+    }
+
+    /* 面板管理 */
+    .dashboard-panel {
+      display: none;
+    }
+
+    .dashboard-panel.active {
+      display: block;
+      animation: fadeIn 0.4s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     /* 量子态特效 */
     .quantum-particle {
       position: absolute;
@@ -711,6 +764,53 @@
     .user-profile-pic:hover {
       transform: translate(-50%, -50%) scale(1.05); /* 保持居中的同时实现放大效果 */
       border-color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* 探索标签页样式增强 */
+    .nav-pills .nav-link {
+      border-radius: 8px;
+      padding: 0.6rem 1.2rem;
+      background-color: rgba(255, 255, 255, 0.9);
+      color: var(--dark) !important;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      margin-right: 0.5rem;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    .nav-pills .nav-link:hover {
+      background-color: rgba(248, 250, 252, 1);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      color: var(--primary) !important;
+    }
+
+    .nav-pills .nav-link.active {
+      background: var(--quantum-gradient);
+      color: white !important;
+      box-shadow: 0 4px 10px rgba(109, 40, 217, 0.25);
+    }
+
+    /* 参考动漫标签 */
+    .reference-anime-badge {
+      transition: all 0.3s ease;
+      font-weight: 500;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .reference-anime-badge:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    /* 量子态动画 - 更平滑的界面过渡 */
+    @keyframes quantumFadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .quantum-fade-in {
+      animation: quantumFadeIn 0.35s ease-out forwards;
     }
   </style>
 </head>
@@ -893,6 +993,67 @@
                       <p class="mt-3">量子态计算中...</p>
                     </div>
                   </div>
+
+                  <!-- 个性化推荐扩展区域 - 探索更多模块 -->
+                  <div class="section-card mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <h3 class="section-title mb-0">
+                        <i class="fas fa-compass text-primary"></i> 探索更多
+                      </h3>
+                      <a href="{% url 'anime:anime_list' %}" class="btn btn-sm btn-outline-primary rounded-pill">
+                        查看全部
+                      </a>
+                    </div>
+
+                    <!-- 内容分类标签 -->
+                    <ul class="nav nav-pills mb-3" id="explorationTabs" role="tablist">
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="seasonal-tab" data-bs-toggle="pill" data-bs-target="#seasonal" type="button" role="tab">
+                          <i class="fas fa-calendar-alt me-1"></i>本季新番
+                        </button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="similar-tab" data-bs-toggle="pill" data-bs-target="#similar" type="button" role="tab">
+                          <i class="fas fa-puzzle-piece me-1"></i>相似推荐
+                        </button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="classic-tab" data-bs-toggle="pill" data-bs-target="#classic" type="button" role="tab">
+                          <i class="fas fa-trophy me-1"></i>经典必看
+                        </button>
+                      </li>
+                    </ul>
+
+                    <!-- 内容区域 -->
+                    <div class="tab-content" id="explorationTabContent">
+                      <!-- 本季新番 -->
+                      <div class="tab-pane fade show active" id="seasonal" role="tabpanel">
+                        <!-- 由ExplorationController动态填充 -->
+                        <div class="text-center py-5">
+                          <div class="quantum-spinner"></div>
+                          <p class="mt-3">正在获取本季新番...</p>
+                        </div>
+                      </div>
+
+                      <!-- 相似推荐 -->
+                      <div class="tab-pane fade" id="similar" role="tabpanel">
+                        <!-- 由ExplorationController动态填充 -->
+                        <div class="text-center py-5">
+                          <div class="quantum-spinner"></div>
+                          <p class="mt-3">正在分析您的喜好...</p>
+                        </div>
+                      </div>
+
+                      <!-- 经典必看 -->
+                      <div class="tab-pane fade" id="classic" role="tabpanel">
+                        <!-- 由ExplorationController动态填充 -->
+                        <div class="text-center py-5">
+                          <div class="quantum-spinner"></div>
+                          <p class="mt-3">正在收集经典推荐...</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -963,11 +1124,14 @@
                     <a href="{% url 'recommendation:favorites' %}" class="list-group-item list-group-item-action">
                       <i class="fas fa-heart"></i>我的收藏
                     </a>
+                    <a href="{% url 'recommendation:user_ratings' %}" class="list-group-item list-group-item-action">
+                      <i class="fas fa-star"></i>我的评分
+                    </a>
                     <a href="{% url 'recommendation:browsing_history' %}" class="list-group-item list-group-item-action">
                       <i class="fas fa-history"></i>浏览历史
                     </a>
                     <a href="{% url 'recommendation:user_comments' %}" class="list-group-item list-group-item-action">
-                      <i class="fas fa-comments me-2"></i>我的评论
+                      <i class="fas fa-comments"></i>我的评论
                     </a>
                   </div>
                 </div>
@@ -982,7 +1146,13 @@
                 <!-- 最近评分 -->
                 <div class="section-card">
                   <h2 class="section-title">
-                    <i class="fas fa-star"></i>最近评分
+                    <i class="fas fa-star"></i>
+                      <a href="{% url 'recommendation:user_ratings' %}" style="text-decoration: none; color: inherit;">
+                      最近评分
+                          <small class="ms-2 fs-6">
+                              <i class="fas fa-external-link-alt"></i>
+                          </small>
+                      </a>
                   </h2>
                   <div id="ratingsContainer">
                     <!-- 数据加载中 -->
@@ -1027,18 +1197,26 @@
     </div>
   </div>
 
-  <!-- JavaScript -->
+  <!-- JavaScript 架构层 -->
+  <!-- 基础依赖 -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
+  <!-- 核心架构组件 -->
+  <script src="/static/recommendation/js/dashboard.js"></script>
+  <script src="/static/recommendation/js/exploration-controller.js"></script>
+  <script src="/static/recommendation/js/visualization.js"></script>
+
   <!-- 初始数据加载 -->
   <script>
-    // 初始数据
+    // 初始数据注入 - 量子内存态服务
     const initialRatings = {{ user_ratings|safe }};
     const initialComments = {{ user_comments|safe }};
 
-    window.DEBUG_ROUTER = false; // 设为true开启路由调试
-    // 添加这行 - 定义全局URL对象
+    // 路由调试开关
+    window.DEBUG_ROUTER = false;
+
+    // 全局URL路由映射表 - 量子路径导航系统
     window.URLS = {
       // 基础路由
       animeList: "{% url 'anime:anime_list' %}",
@@ -1048,54 +1226,294 @@
       userComments: "{% url 'recommendation:user_comments' %}",
 
       // 动态路由基地址 - 用于构建详情页URL
-      animeDetail: "/anime/", // 确保这与您的URL配置一致
+      animeDetail: "/anime/", // 确保这与URL配置一致
 
       // 元数据
-      version: "1.0.0",
+      version: "2.3.7-quantum",
       buildTimestamp: "{{ build_timestamp|default:'2025-03-29' }}"
     };
   </script>
 
-  <!-- 添加仪表板标签切换脚本 -->
+  <!-- 仪表板标签切换控制器 -->
   <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // 获取所有标签按钮和面板
-      const tabButtons = document.querySelectorAll('.dashboard-tab');
-      const panels = document.querySelectorAll('.dashboard-panel');
+    /**
+ * 标签系统控制器 - 量子隔离版 v4.2.1
+ * 防止标签空间崩溃并导致引擎降级
+ */
+document.addEventListener('DOMContentLoaded', function() {
+  // 获取所有标签按钮和面板
+  const tabButtons = document.querySelectorAll('.dashboard-tab');
+  const panels = document.querySelectorAll('.dashboard-panel');
 
-      // 为每个按钮添加点击事件
-      tabButtons.forEach(button => {
-        button.addEventListener('click', function() {
-          // 获取目标面板ID
-          const targetId = this.dataset.tabTarget;
+  // 为每个按钮添加隔离化点击事件
+  tabButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      // 获取目标面板ID
+      const targetId = this.dataset.tabTarget;
 
-          // 移除所有活动状态
-          tabButtons.forEach(btn => btn.classList.remove('active'));
-          panels.forEach(panel => panel.classList.remove('active'));
+      // 移除所有活动状态
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      panels.forEach(panel => panel.classList.remove('active'));
 
-          // 设置当前按钮和面板为活动状态
-          this.classList.add('active');
-          document.getElementById(targetId).classList.add('active');
+      // 设置当前按钮和面板为活动状态
+      this.classList.add('active');
+      document.getElementById(targetId).classList.add('active');
 
-          // 触发窗口调整事件，让图表重新绘制
-          window.dispatchEvent(new Event('resize'));
-        });
-      });
+      // 【核心修复】安全的标签特定初始化
+      _initTabSpecificData(targetId);
+
+      // 触发窗口调整事件，让图表重新绘制
+      window.dispatchEvent(new Event('resize'));
     });
+  });
+
+  /**
+   * 标签特定数据初始化 - 高能接入点分离术
+   * 防止污染参数跨域传播
+   * @param {string} tabId - 标签ID
+   */
+  function _initTabSpecificData(tabId) {
+    // 策略性数据分离
+    switch(tabId) {
+      case 'recommendationPanel':
+        // 【量子态隔离】使用dashboardController加载推荐
+        if (window.dashboardController) {
+          // 确保使用的是支持的接口参数
+          window.dashboardController.loadRecommendations('hybrid');
+        }
+        break;
+
+      case 'activityPanel':
+        // 活动记录不依赖推荐引擎，分离数据获取通道
+        if (window.dashboardController) {
+          // 并行加载活动数据，避免交叉污染
+          window.dashboardController.loadRatings();
+          window.dashboardController.loadComments();
+        }
+        break;
+
+      case 'visualizationPanel':
+        // 数据可视化面板初始化
+        if (window.quantumVisualizationEngine) {
+          // 使用专用可视化引擎 - 物理隔离推荐引擎
+          window.quantumVisualizationEngine.initializeCharts();
+        } else if (window.dashboardController) {
+          // 兼容性处理：初始化可视化组件
+          console.log('[QUANTUM] 可视化引擎不存在，尝试兼容性初始化');
+          // 不传递seed_anime_id参数
+          _safeInitVisualization();
+        }
+        break;
+    }
+  }
+
+  /**
+   * 安全初始化可视化组件
+   * 避免无意义参数传递
+   */
+  function _safeInitVisualization() {
+    const vizContainer = document.getElementById('visualizationPanel');
+    if (!vizContainer) return;
+
+    // 逐个初始化可视化组件，确保不触发推荐引擎
+    const charts = vizContainer.querySelectorAll('.chart-container');
+    charts.forEach(chart => {
+      const chartId = chart.id;
+      const chartType = chart.dataset.chartType;
+
+      if (chartId && chartType) {
+        // 直接调用特定的API端点而非通用推荐接口
+        _loadVisualizationData(chartId, chartType);
+      }
+    });
+  }
+
+  /**
+   * 加载可视化数据
+   * 使用特定端点而非通用推荐接口
+   */
+  function _loadVisualizationData(chartId, chartType) {
+    const apiMap = {
+      'userActivityChart': '/recommendations/api/visualization/user-activity/',
+      'genrePreferenceChart': '/recommendations/api/visualization/genre-preference/',
+      'ratingDistributionChart': '/recommendations/api/visualization/rating-distribution/',
+      'viewingTrendsChart': '/recommendations/api/visualization/viewing-trends/',
+      'genreHeatmapChart': '/recommendations/api/visualization/genre-heatmap/'
+    };
+
+    const apiEndpoint = apiMap[chartId];
+    if (!apiEndpoint) return;
+
+    // 安全获取CSRF Token
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+                     document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1] || '';
+
+    // 不携带seed_anime_id的安全请求
+    fetch(apiEndpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken,
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success && window.echarts) {
+        // 在此使用echarts渲染数据，不依赖推荐引擎
+        const chartElement = document.getElementById(chartId);
+        if (chartElement) {
+          const chart = echarts.init(chartElement);
+
+          // 根据图表类型构建不同配置
+          let option;
+          switch(chartType) {
+            case 'pie':
+              option = _buildPieChartOption(data.data);
+              break;
+            case 'bar':
+              option = _buildBarChartOption(data.data);
+              break;
+            case 'line':
+              option = _buildLineChartOption(data.data);
+              break;
+            case 'radar':
+              option = _buildRadarChartOption(data.data);
+              break;
+            case 'heatmap':
+              option = _buildHeatmapOption(data.data);
+              break;
+          }
+
+          if (option) {
+            chart.setOption(option);
+          }
+        }
+      }
+    })
+    .catch(error => console.error(`[QUANTUM-ERROR] 可视化数据加载失败: ${error.message}`));
+  }
+
+  // 图表配置构建函数
+  function _buildPieChartOption(data) {
+    return {
+      tooltip: { trigger: 'item' },
+      series: [{
+        type: 'pie',
+        radius: '65%',
+        center: ['50%', '50%'],
+        data: data,
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 10,
+            shadowOffsetX: 0,
+            shadowColor: 'rgba(0, 0, 0, 0.5)'
+          }
+        }
+      }]
+    };
+  }
+
+  function _buildBarChartOption(data) {
+    return {
+      tooltip: { trigger: 'axis' },
+      xAxis: {
+        type: 'category',
+        data: data.map(item => item.name)
+      },
+      yAxis: { type: 'value' },
+      series: [{
+        data: data.map(item => item.value),
+        type: 'bar'
+      }]
+    };
+  }
+
+  function _buildLineChartOption(data) {
+    return {
+      tooltip: { trigger: 'axis' },
+      xAxis: {
+        type: 'category',
+        data: data.map(item => item.date || item.name)
+      },
+      yAxis: { type: 'value' },
+      series: [{
+        data: data.map(item => item.value || item.views),
+        type: 'line',
+        smooth: true
+      }]
+    };
+  }
+
+  function _buildRadarChartOption(data) {
+    const indicators = data.map(item => ({ name: item.name, max: 100 }));
+    return {
+      tooltip: {},
+      radar: {
+        indicator: indicators
+      },
+      series: [{
+        type: 'radar',
+        data: [{
+          value: data.map(item => item.value),
+          name: '偏好程度'
+        }]
+      }]
+    };
+  }
+
+  function _buildHeatmapOption(data) {
+    // 热力图需要复杂处理，这里是简化版
+    return {
+      tooltip: { position: 'top' },
+      grid: {
+        left: '3%',
+        right: '7%',
+        bottom: '13%',
+        containLabel: true
+      },
+      xAxis: { type: 'category', data: data.xAxis || [] },
+      yAxis: { type: 'category', data: data.yAxis || [] },
+      visualMap: {
+        min: 0,
+        max: data.max || 100,
+        calculable: true,
+        orient: 'horizontal',
+        left: 'center',
+        bottom: '5%'
+      },
+      series: [{
+        name: '类型热度',
+        type: 'heatmap',
+        data: data.values || []
+      }]
+    };
+  }
+});
   </script>
 
-  <!-- 初始化仪表盘 -->
+  <!-- 量子动画和粒子效果 -->
   <script>
-    // 创建并初始化仪表盘控制器
+    // 创建并初始化仪表盘控制器 - 量子实例化器
     document.addEventListener('DOMContentLoaded', function() {
+      console.log('[QUANTUM-CORE] 初始化量子态仪表盘 v' + window.URLS.version);
+
+      // 主控制器实例化
       window.dashboardController = new DashboardController();
       dashboardController.initDashboard();
 
+      // 探索控制器实例化
+      window.explorationController = new ExplorationController(dashboardController);
+      explorationController.init();
+
       // 创建粒子效果
       createQuantumParticles();
+
+      console.log('[QUANTUM-CORE] 量子态仪表盘初始化完成 | ' + new Date().toISOString());
     });
 
-    // 量子粒子效果函数
+    // 量子粒子效果函数 - 视觉态坍缩仿真
     function createQuantumParticles() {
       const container = document.querySelector('.dashboard-header');
       if (!container) return;
@@ -1106,29 +1524,29 @@
         const particle = document.createElement('div');
         particle.classList.add('quantum-particle');
 
-        // 随机位置
+        // 随机位置 - 空间分布函数
         const xPos = Math.random() * 100;
         const yPos = Math.random() * 100;
 
         particle.style.left = `${xPos}%`;
         particle.style.top = `${yPos}%`;
 
-        // 随机大小
+        // 随机大小 - 量子粒径映射
         const size = Math.random() * 5 + 2;
         particle.style.width = `${size}px`;
         particle.style.height = `${size}px`;
 
-        // 随机颜色
+        // 随机颜色 - 光谱态编码
         const hue = Math.random() * 60 + 240; // 蓝紫色调
         particle.style.backgroundColor = `hsl(${hue}, 80%, 70%)`;
 
-        // 随机动画
+        // 随机动画 - 时间态映射
         const duration = Math.random() * 10 + 5;
         const delay = Math.random() * 5;
 
         particle.style.animation = `float ${duration}s ease-in-out ${delay}s infinite`;
 
-        // 随机透明度
+        // 随机透明度 - 概率密度函数
         particle.style.opacity = Math.random() * 0.5 + 0.3;
 
         container.appendChild(particle);

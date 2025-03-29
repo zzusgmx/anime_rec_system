@@ -224,7 +224,7 @@
                     </li>
                     {% if user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="#" title="查看您收藏的动漫">
+                        <a class="nav-link" href="{% url 'recommendation:favorites' %}" title="查看您收藏的动漫">
                             <i class="fas fa-heart me-1"></i>我的收藏
                         </a>
                     </li>

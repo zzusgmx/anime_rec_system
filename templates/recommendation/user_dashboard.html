@@ -994,16 +994,26 @@
     const initialRatings = {{ user_ratings|safe }};
     const initialComments = {{ user_comments|safe }};
 
+    window.DEBUG_ROUTER = false; // 设为true开启路由调试
     // 添加这行 - 定义全局URL对象
-    const URLS = {
-        animeList: "{% url 'anime:anime_list' %}",
-        recommendations: "{% url 'recommendation:recommendations' %}",
-        browsingHistory: "{% url 'recommendation:browsing_history' %}",
-        favorites: "{% url 'recommendation:favorites' %}"};
+    window.URLS = {
+    // 基础路由
+    animeList: "{% url 'anime:anime_list' %}",
+    recommendations: "{% url 'recommendation:recommendations' %}",
+    browsingHistory: "{% url 'recommendation:browsing_history' %}",
+    favorites: "{% url 'recommendation:favorites' %}",
+    userComments: "{% url 'recommendation:user_comments' %}",
+
+    // 动态路由基地址 - 用于构建详情页URL
+    animeDetail: "/anime/", // 确保这与您的URL配置一致
+
+    // 元数据
+    version: "1.0.0",
+    buildTimestamp: "{{ build_timestamp|default:'2025-03-29' }}"
+  };
   </script>
 
   <!-- 引入仪表盘控制器脚本 -->
-  <script src="/static/recommendation/js/dashboard.js"></script>
 
   <!-- 初始化仪表盘 -->
   <script>

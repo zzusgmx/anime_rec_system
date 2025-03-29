@@ -272,6 +272,7 @@ def user_activity_dashboard(request):
             ratings_data.append({
                 'animeId': rating.anime.id,
                 'animeTitle': rating.anime.title,
+                'animeSlug': rating.anime.slug,  # 添加slug字段
                 'rating': float(rating.rating),
                 'date': rating.timestamp.strftime('%Y-%m-%d')
             })
@@ -715,11 +716,10 @@ def dashboard_recommendations_api(request):
         logger.error(f"仪表板推荐API错误: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
-
 @login_required
 def dashboard_ratings_api(request):
     """
-    仪表板评分API
+    仪表盘评分API
     """
     try:
         # 获取用户评分
@@ -731,15 +731,16 @@ def dashboard_ratings_api(request):
             ratings.append({
                 'animeId': rating.anime.id,
                 'animeTitle': rating.anime.title,
+                'animeSlug': rating.anime.slug,  # 添加slug字段
                 'rating': float(rating.rating),
-                'date': rating.timestamp.strftime('%Y-%m-%d %H:%M')
+                'date': rating.timestamp.strftime('%Y-%m-%d %H:%M'),
+                'ratingId': rating.id  # 可选：添加评分ID
             })
 
         return JsonResponse({'success': True, 'ratings': ratings})
     except Exception as e:
-        logger.error(f"仪表板评分API错误: {str(e)}")
+        logger.error(f"仪表盘评分API错误: {str(e)}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
-
 
 @login_required
 def dashboard_comments_api(request):

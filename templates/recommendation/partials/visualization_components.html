@@ -1,0 +1,111 @@
+<!-- 可视化组件模板 -->
+<div class="row" id="visualizationPanel">
+  <!-- 切换按钮 -->
+  <div class="col-12 mb-4">
+    <div class="viz-nav">
+      <button class="viz-nav-btn active" data-viz-target="activityPanel">
+        <i class="fas fa-chart-pie me-2"></i>活动分析
+      </button>
+      <button class="viz-nav-btn" data-viz-target="genrePanel">
+        <i class="fas fa-tags me-2"></i>类型偏好
+      </button>
+      <button class="viz-nav-btn" data-viz-target="ratingPanel">
+        <i class="fas fa-star me-2"></i>评分分布
+      </button>
+      <button class="viz-nav-btn" data-viz-target="trendPanel">
+        <i class="fas fa-chart-line me-2"></i>活跃趋势
+      </button>
+      <button class="viz-nav-btn" data-viz-target="radarPanel">
+        <i class="fas fa-compass me-2"></i>偏好雷达
+      </button>
+      <button class="viz-nav-btn" data-viz-target="heatmapPanel">
+        <i class="fas fa-fire me-2"></i>热度分析
+      </button>
+    </div>
+  </div>
+
+  <!-- 数据可视化面板 -->
+  <div class="col-12">
+    <!-- 用户活动分析 -->
+    <div class="viz-panel active" id="activityPanel">
+      <div class="section-card">
+        <h2 class="section-title">
+          <i class="fas fa-chart-pie"></i>用户活动分析
+        </h2>
+        <p class="text-muted mb-4">您在系统中的互动行为分布，包括浏览、评分、评论和收藏</p>
+        <div class="chart-container" id="activityChart" style="height: 400px;"></div>
+      </div>
+    </div>
+
+    <!-- 类型偏好分析 -->
+    <div class="viz-panel" id="genrePanel">
+      <div class="section-card">
+        <h2 class="section-title">
+          <i class="fas fa-tags"></i>类型偏好分析
+        </h2>
+        <p class="text-muted mb-4">基于您的观看和评分历史，系统分析出的动漫类型偏好</p>
+        <div class="chart-container" id="genreChart" style="height: 400px;"></div>
+      </div>
+    </div>
+
+    <!-- 评分分布分析 -->
+    <div class="viz-panel" id="ratingPanel">
+      <div class="section-card">
+        <h2 class="section-title">
+          <i class="fas fa-star"></i>评分分布分析
+        </h2>
+        <p class="text-muted mb-4">您的评分习惯分析，展示不同评分分数的分布情况</p>
+        <div class="chart-container" id="ratingChart" style="height: 400px;"></div>
+      </div>
+    </div>
+
+    <!-- 活跃趋势分析 -->
+    <div class="viz-panel" id="trendPanel">
+      <div class="section-card">
+        <h2 class="section-title">
+          <i class="fas fa-chart-line"></i>活跃趋势分析
+        </h2>
+        <p class="text-muted mb-4">展示您近期的活跃度趋势，包括浏览量和评分频率</p>
+        <div class="chart-container" id="trendChart" style="height: 400px;"></div>
+      </div>
+    </div>
+
+    <!-- 偏好雷达图分析 -->
+    <div class="viz-panel" id="radarPanel">
+      {% include 'recommendation/partials/radar_chart.html' %}
+    </div>
+
+    <!-- 类型热力图分析 -->
+    <div class="viz-panel" id="heatmapPanel">
+      {% include 'recommendation/partials/genre_heatmap.html' %}
+    </div>
+  </div>
+</div>
+
+<script>
+  // 可视化导航切换
+  document.addEventListener('DOMContentLoaded', function() {
+    // 获取所有导航按钮
+    const navButtons = document.querySelectorAll('.viz-nav-btn');
+    const panels = document.querySelectorAll('.viz-panel');
+
+    // 为每个按钮添加点击事件
+    navButtons.forEach(button => {
+      button.addEventListener('click', function() {
+        // 获取目标面板ID
+        const targetId = this.dataset.vizTarget;
+
+        // 移除所有活动状态
+        navButtons.forEach(btn => btn.classList.remove('active'));
+        panels.forEach(panel => panel.classList.remove('active'));
+
+        // 设置当前按钮和面板为活动状态
+        this.classList.add('active');
+        document.getElementById(targetId).classList.add('active');
+
+        // 触发窗口调整事件，让图表重新绘制
+        window.dispatchEvent(new Event('resize'));
+      });
+    });
+  });
+</script>

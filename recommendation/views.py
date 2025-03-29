@@ -1124,3 +1124,344 @@ def visualization_viewing_trends(request):
             'success': False,
             'error': f'获取观看趋势数据失败: {str(e)}'
         }, status=500)
+
+
+# recommendation/views.py 中添加的数据可视化API端点
+
+from django.db.models import Count, Sum, Case, When, F, Value, IntegerField
+from django.db.models.functions import TruncDate, Coalesce
+from django.utils import timezone
+from datetime import timedelta
+import random
+
+
+# ========================= 数据可视化 API 端点 =========================
+
+@login_required
+def visualization_user_activity(request):
+    """
+    用户活动分析API
+    返回用户在系统中的活动分布数据（浏览、评分、评论、收藏）
+    """
+    try:
+        user = request.user
+
+        # 获取用户的浏览记录数
+        browsing_count = UserBrowsing.objects.filter(user=user).count()
+
+        # 获取用户的评分记录数
+        rating_count = UserRating.objects.filter(user=user).count()
+
+        # 获取用户的评论记录数
+        comment_count = UserComment.objects.filter(user=user).count()
+
+        # 获取用户的收藏记录数
+        favorite_count = UserFavorite.objects.filter(user=user).count()
+
+        # 构建数据
+        data = [
+            {
+                'name': '浏览记录',
+                'value': browsing_count,
+                'color': '#6d28d9'  # 紫色
+            },
+            {
+                'name': '评分记录',
+                'value': rating_count,
+                'color': '#10b981'  # 绿色
+            },
+            {
+                'name': '评论记录',
+                'value': comment_count,
+                'color': '#f97316'  # 橙色
+            },
+            {
+                'name': '收藏记录',
+                'value': favorite_count,
+                'color': '#2563eb'  # 蓝色
+            }
+        ]
+
+        return JsonResponse({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        logger.error(f"用户活动数据API错误: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'获取活动数据失败: {str(e)}'
+        }, status=500)
+
+
+@login_required
+def visualization_genre_preference(request):
+    """
+    类型偏好分析API
+    基于用户的浏览、评分和收藏记录，分析用户的动漫类型偏好
+    """
+    try:
+        user = request.user
+
+        # 获取用户评分过的动漫的类型
+        rated_anime_types = UserRating.objects.filter(user=user).select_related('anime__type')
+        type_data = {}
+
+        # 统计每个类型的评分情况
+        for rating in rated_anime_types:
+            type_name = rating.anime.type.name
+            if type_name not in type_data:
+                type_data[type_name] = {
+                    'rating_count': 0,
+                    'total_rating': 0,
+                    'browse_count': 0,
+                    'favorite_count': 0
+                }
+            type_data[type_name]['rating_count'] += 1
+            type_data[type_name]['total_rating'] += rating.rating
+
+        # 获取用户浏览记录中的动漫类型
+        browsed_anime_types = UserBrowsing.objects.filter(user=user).select_related('anime__type')
+        for browsing in browsed_anime_types:
+            type_name = browsing.anime.type.name
+            if type_name not in type_data:
+                type_data[type_name] = {
+                    'rating_count': 0,
+                    'total_rating': 0,
+                    'browse_count': 0,
+                    'favorite_count': 0
+                }
+            type_data[type_name]['browse_count'] += browsing.browse_count
+
+        # 获取用户收藏的动漫类型
+        favorite_anime_types = UserFavorite.objects.filter(user=user).select_related('anime__type')
+        for favorite in favorite_anime_types:
+            type_name = favorite.anime.type.name
+            if type_name not in type_data:
+                type_data[type_name] = {
+                    'rating_count': 0,
+                    'total_rating': 0,
+                    'browse_count': 0,
+                    'favorite_count': 0
+                }
+            type_data[type_name]['favorite_count'] += 1
+
+        # 计算每个类型的偏好分数
+        preference_scores = []
+        for type_name, data in type_data.items():
+            # 偏好分数计算逻辑：评分权重 * 平均评分 + 浏览权重 * 浏览次数 + 收藏权重 * 收藏次数
+            avg_rating = data['total_rating'] / data['rating_count'] if data['rating_count'] > 0 else 0
+
+            # 权重设置
+            rating_weight = 2.0
+            browse_weight = 0.2
+            favorite_weight = 3.0
+
+            # 计算偏好分数
+            preference_score = (
+                    rating_weight * avg_rating * data['rating_count'] +
+                    browse_weight * data['browse_count'] +
+                    favorite_weight * data['favorite_count']
+            )
+
+            preference_scores.append({
+                'name': type_name,
+                'value': round(preference_score, 2)
+            })
+
+        # 按偏好分数降序排序
+        preference_scores.sort(key=lambda x: x['value'], reverse=True)
+
+        # 取前8个类型
+        top_preferences = preference_scores[:8]
+
+        return JsonResponse({
+            'success': True,
+            'data': top_preferences
+        })
+    except Exception as e:
+        logger.error(f"类型偏好数据API错误: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'获取类型偏好数据失败: {str(e)}'
+        }, status=500)
+
+
+@login_required
+def visualization_rating_distribution(request):
+    """
+    评分分布分析API
+    分析用户的评分分布情况，展示不同评分分数的分布
+    """
+    try:
+        user = request.user
+
+        # 获取用户的评分记录
+        ratings = UserRating.objects.filter(user=user)
+
+        # 如果没有评分记录
+        if not ratings.exists():
+            # 返回空数据
+            return JsonResponse({
+                'success': True,
+                'data': []
+            })
+
+        # 统计每个评分的次数
+        rating_distribution = {}
+        for r in range(1, 6):  # 1-5分
+            # 计算四舍五入到每个整数分数的评分数量
+            count = ratings.filter(rating__gte=r - 0.25, rating__lt=r + 0.75).count()
+            rating_distribution[r] = count
+
+        # 构建数据
+        data = [
+            {'rating': r, 'count': rating_distribution[r]}
+            for r in range(1, 6)
+        ]
+
+        return JsonResponse({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        logger.error(f"评分分布数据API错误: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'获取评分分布数据失败: {str(e)}'
+        }, status=500)
+
+
+@login_required
+def visualization_genre_heatmap(request):
+    """
+    类型热度分析API
+    分析各类型动漫的浏览量、评分和收藏情况
+    """
+    try:
+        # 从数据库获取动漫类型列表
+        from anime.models import AnimeType
+        anime_types = AnimeType.objects.all()[:10]  # 限制为前10种类型
+
+        # 初始化结果数据结构
+        result = {
+            'genres': [t.name for t in anime_types],
+            'views': [],
+            'ratings': [],
+            'favorites': []
+        }
+
+        # 为每种类型获取数据
+        for anime_type in anime_types:
+            # 该类型的所有动漫
+            animes_of_type = Anime.objects.filter(type=anime_type)
+            anime_ids = [a.id for a in animes_of_type]
+
+            # 浏览量数据
+            views_count = UserBrowsing.objects.filter(
+                anime__in=animes_of_type
+            ).count()
+
+            # 评分数据
+            ratings_count = UserRating.objects.filter(
+                anime__in=animes_of_type
+            ).count()
+
+            # 收藏数据
+            favorites_count = UserFavorite.objects.filter(
+                anime__in=animes_of_type
+            ).count()
+
+            # 添加到结果中
+            result['views'].append({
+                'name': anime_type.name,
+                'value': views_count
+            })
+
+            result['ratings'].append({
+                'name': anime_type.name,
+                'value': ratings_count
+            })
+
+            result['favorites'].append({
+                'name': anime_type.name,
+                'value': favorites_count
+            })
+
+        return JsonResponse({
+            'success': True,
+            'data': result
+        })
+    except Exception as e:
+        logger.error(f"类型热力图数据API错误: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'获取类型热力图数据失败: {str(e)}'
+        }, status=500)
+
+@login_required
+def visualization_viewing_trends(request):
+    """
+    观看趋势分析API
+    分析用户近期的活跃度趋势，包括浏览量和评分频率
+    """
+    try:
+        user = request.user
+
+        # 获取过去14天的日期范围
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=13)
+        date_range = [start_date + timedelta(days=i) for i in range(14)]
+
+        # 查询用户在这段时间内的浏览记录
+        browsing_data = (
+            UserBrowsing.objects
+            .filter(
+                user=user,
+                last_browsed__date__gte=start_date,
+                last_browsed__date__lte=end_date
+            )
+            .annotate(date=TruncDate('last_browsed'))
+            .values('date')
+            .annotate(views=Count('id'))
+            .order_by('date')
+        )
+
+        # 查询用户在这段时间内的评分记录
+        rating_data = (
+            UserRating.objects
+            .filter(
+                user=user,
+                timestamp__date__gte=start_date,
+                timestamp__date__lte=end_date
+            )
+            .annotate(date=TruncDate('timestamp'))
+            .values('date')
+            .annotate(ratings=Count('id'))
+            .order_by('date')
+        )
+
+        # 将查询结果转换为字典，以日期为键
+        browsing_dict = {item['date'].isoformat(): item['views'] for item in browsing_data}
+        rating_dict = {item['date'].isoformat(): item['ratings'] for item in rating_data}
+
+        # 构建完整的日期序列数据
+        result = []
+        for d in date_range:
+            date_str = d.isoformat()
+            result.append({
+                'date': date_str,
+                'views': browsing_dict.get(date_str, 0),
+                'ratings': rating_dict.get(date_str, 0)
+            })
+
+        return JsonResponse({
+            'success': True,
+            'data': result
+        })
+    except Exception as e:
+        logger.error(f"观看趋势数据API错误: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'获取观看趋势数据失败: {str(e)}'
+        }, status=500)

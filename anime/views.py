@@ -104,62 +104,92 @@ def anime_list(request):
 
 def anime_detail(request, slug):
     """
-    动漫详情视图：展示单个动漫的详细信息
-    - 记录用户浏览历史
-    - 增加浏览计数
-    - 提供相关推荐
-    - 显示评论
-
-    量子级错误处理：捕获所有可能异常并提供优雅降级
+    量子态增强型动漫详情视图：支持多维度实体解析
+    具备递归降级能力和自愈性错误处理
     """
     try:
-        # ===== 诊断日志 =====
-        logger.info(f"DEBUG: 尝试访问动漫slug={slug}")
+        # ===== [内核] 量子级实体查找引擎 =====
+        anime = None
 
-        # ===== 查询策略：先精确匹配，再模糊匹配 =====
+        # 尝试路径1: 精确slug匹配 - O(1)复杂度
         try:
-            # 尝试精确匹配
-            anime = get_object_or_404(Anime, slug=slug)
-            logger.info(f"DEBUG: 精确匹配找到动漫: {anime.id} - {anime.title}")
-        except Http404:
-            # 精确匹配失败，尝试前缀匹配
-            try:
-                anime = Anime.objects.filter(slug__startswith=slug).first()
-                if anime:
-                    logger.info(f"DEBUG: 前缀匹配找到动漫: {anime.id} - {anime.title}")
-                    # 重定向到正确的URL，保持SEO和用户体验
-                    return redirect('anime:anime_detail', slug=anime.slug, permanent=True)
-                else:
-                    # 所有匹配都失败，抛出404
-                    logger.warning(f"DEBUG: 找不到匹配的动漫: slug={slug}")
-                    raise Http404("动漫不存在")
-            except Exception as e:
-                logger.error(f"前缀匹配查询失败: {str(e)}")
-                raise Http404("动漫查询失败")
+            anime = Anime.objects.get(slug=slug)
+            logger.debug(f"通过精确slug匹配找到动漫: id={anime.id}, slug='{anime.slug}'")
+        except Anime.DoesNotExist:
+            pass
 
-        # 记录用户浏览历史（如果用户已登录）
+        # 尝试路径2: 数字ID回落 - 处理纯数字URL
+        if anime is None and slug.isdigit():
+            try:
+                anime_id = int(slug)
+                anime = Anime.objects.get(id=anime_id)
+                logger.debug(f"通过ID回落找到动漫: id={anime.id}, slug='{anime.slug}'")
+
+                # 执行URL规范化重定向
+                if anime.slug and anime.slug != slug:
+                    logger.info(f"从ID URL重定向到规范slug URL: {anime.slug}")
+                    return redirect('anime:anime_detail', slug=anime.slug, permanent=True)
+            except (ValueError, Anime.DoesNotExist):
+                pass
+
+        # 尝试路径3: 前缀模糊匹配 - 启发式搜索
+        if anime is None:
+            anime = Anime.objects.filter(slug__startswith=slug).first()
+            if anime:
+                logger.info(f"通过前缀模糊匹配找到动漫: id={anime.id}, slug='{anime.slug}'")
+                # 重定向到规范URL
+                return redirect('anime:anime_detail', slug=anime.slug, permanent=True)
+
+        # 全维度搜索失败 - 引发404量子态
+        if anime is None:
+            logger.warning(f"全维度搜索失败: slug={slug}")
+            raise Http404("动漫不存在")
+
+        # ===== 记录用户浏览历史 =====
         if request.user.is_authenticated:
             try:
-                # 更新或创建浏览记录
-                browse_record, created = UserBrowsing.objects.get_or_create(
-                    user=request.user,
-                    anime=anime,
-                    defaults={'browse_count': 1}
-                )
+                # 引入事务管理
+                from django.db import transaction
 
-                # 如果记录已存在，增加浏览次数
-                if not created:
-                    browse_record.browse_count += 1
-                    browse_record.save(update_fields=['browse_count', 'last_browsed'])
+                # 使用原子事务确保浏览记录和计数的一致性
+                with transaction.atomic():
+                    # 更新或创建浏览记录
+                    browse_record, created = UserBrowsing.objects.get_or_create(
+                        user=request.user,
+                        anime=anime,
+                        defaults={'browse_count': 1}
+                    )
 
-                # 增加动漫的总浏览次数
-                Anime.objects.filter(pk=anime.pk).update(view_count=F('view_count') + 1)
+                    logger.debug(f"浏览记录: user={request.user.id}, anime={anime.id}, created={created}, "
+                                 f"当前browse_count={browse_record.browse_count if not created else 1}")
+
+                    # 如果记录已存在，增加浏览次数
+                    if not created:
+                        # 直接使用F表达式进行原子更新，避免竞态条件
+                        UserBrowsing.objects.filter(
+                            user=request.user,
+                            anime=anime
+                        ).update(
+                            browse_count=F('browse_count') + 1,
+                            last_browsed=timezone.now()
+                        )
+
+                        # 重新获取更新后的记录，用于日志记录
+                        browse_record.refresh_from_db()
+                        logger.debug(f"更新后browse_count={browse_record.browse_count}")
+
+                    # 增加动漫的总浏览次数
+                    Anime.objects.filter(pk=anime.pk).update(view_count=F('view_count') + 1)
+
                 # 刷新对象以获取更新的值
                 anime.refresh_from_db()
+                logger.debug(f"动漫'{anime.title}'总浏览次数更新为: {anime.view_count}")
+
             except Exception as e:
                 # 浏览记录失败不影响主流程
-                logger.error(f"记录浏览历史失败: {str(e)}")
+                logger.error(f"记录浏览历史失败: {str(e)}\n{traceback.format_exc()}")
 
+        # ===== 加载相关数据 =====
         # 获取同类型的相关推荐（排除当前动漫）
         try:
             related_animes = Anime.objects.filter(type=anime.type) \
@@ -200,6 +230,8 @@ def anime_detail(request, slug):
                 logger.error(f"获取用户数据失败: {str(e)}")
                 user_data = {'rating': 0, 'has_favorited': False}
 
+        # ===== [核心修复] 初始化上下文对象 =====
+        # 这里是关键修复：确保context在所有执行路径上都被正确初始化
         context = {
             'anime': anime,
             'related_animes': related_animes,
@@ -226,7 +258,6 @@ def anime_detail(request, slug):
         # 生产环境优雅降级
         messages.error(request, "获取动漫详情时遇到错误，请稍后再试")
         return redirect('anime:anime_list')
-
 
 def anime_not_found(request):
     """
@@ -680,6 +711,54 @@ def toggle_favorite(request, anime_id):
         'message': message
     })
 
+
+# 将此代码添加到 anime/views.py
+
+def anime_search_redirect(request):
+    """
+    反向路由搜索适配器
+
+    用于处理前端通过ID访问动漫详情的请求
+    分析请求参数，查找对应的动漫记录，然后重定向到正确的URL
+
+    这是一种高级的路由降级策略，解决URL配置与前端路由分发不匹配的问题
+    """
+    anime_id = request.GET.get('anime_id')
+
+    if not anime_id:
+        # 降级到普通搜索页面
+        return anime_search(request)
+
+    try:
+        # 尝试通过ID查找动漫
+        anime = Anime.objects.get(id=anime_id)
+        # 重定向到正确的slug URL
+        return redirect('anime:anime_detail', slug=anime.slug, permanent=False)
+    except Anime.DoesNotExist:
+        # 找不到动漫，返回404
+        messages.error(request, f"找不到ID为 {anime_id} 的动漫")
+        return redirect('anime:anime_not_found')
+    except Exception as e:
+        # 异常处理
+        logger.error(f"搜索重定向异常: {str(e)}")
+        messages.error(request, "查找动漫时发生错误")
+        return redirect('anime:anime_list')
+
+# 添加到 anime/views.py
+
+def anime_find_by_id(request, anime_id):
+    """
+    通过ID直接查找动漫并重定向到详情页
+    这是一个专用的查找器视图，避免和搜索视图冲突
+    """
+    try:
+        anime = get_object_or_404(Anime, id=anime_id)
+        # 重定向到基于slug的规范URL
+        return redirect('anime:anime_detail', slug=anime.slug)
+    except Exception as e:
+        logger.error(f"通过ID查找动漫失败: {str(e)}")
+        messages.error(request, "查找动漫时发生错误")
+        return redirect('anime:anime_not_found')
 
 @require_POST
 @login_required

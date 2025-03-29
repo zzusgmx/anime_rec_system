@@ -48,5 +48,11 @@ urlpatterns = [
 
     path('api/visualization/genre-heatmap/', views.visualization_genre_heatmap, name='visualization_genre_heatmap'),
 
+    path('user-ratings/', views.user_ratings, name='user_ratings'),
+
+    # 添加到recommendation/urls.py的urlpatterns列表
+    path('api/dashboard/seasonal/', views.dashboard_seasonal_api, name='dashboard_seasonal_api'),
+    path('api/dashboard/similar/', views.dashboard_similar_api, name='dashboard_similar_api'),
+    path('api/dashboard/classics/', views.dashboard_classics_api, name='dashboard_classics_api'),
 
 ]

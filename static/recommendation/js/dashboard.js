@@ -89,13 +89,27 @@ class DashboardController {
   }
 
   // 数字增长动画 - 平滑的视觉转换
+  // 修复导致计数错误的动画函数
   animateNumber(element, target, duration = 1500) {
+    // 获取起始值（通常为0）
     const start = parseInt(element.textContent, 10) || 0;
-    const increment = Math.max(1, Math.floor((target - start) / (duration / 50)));
+
+    // 修复：对于小目标值（小于10），始终使用增量1
+    // 这可以防止计数器从0直接跳到2
+    let increment;
+    if (target <= 10) {
+      increment = 1; // 小数字总是增加1
+    } else {
+      // 对于较大的数字，计算比例增量
+      increment = Math.max(1, Math.floor((target - start) / (duration / 50)));
+    }
+
     let current = start;
 
     const timer = setInterval(() => {
       current += increment;
+
+      // 如果达到或超过目标值，设置最终值
       if (current >= target) {
         element.textContent = target;
         clearInterval(timer);
@@ -132,7 +146,7 @@ class DashboardController {
     `;
 
     // 构建API URL
-    const url = `${this.apiEndpoints.recommendations}?strategy=${strategy}&limit=4`;
+    const url = `${this.apiEndpoints.recommendations}?strategy=${strategy}&limit=6`;
 
     // 发起API请求
     fetchWithCSRF(url, {
@@ -524,37 +538,37 @@ class DashboardController {
       </div>
     `;
   }
-
-  // ======== [STRATUM-4] 工具库 ========
-
-  /**
-   * 量子路由解析树 - 多维度路由坍缩算法
-   * 将任意数据模型解析为有效的动漫页面URL
-   * @param {Object} entity - 包含路由数据的实体
-   * @param {string} [anchor=''] - 可选的页内锚点
-   * @returns {string} - 解析后的URL
-   */
-  _resolveAnimeUrl(entity, anchor = '') {
-  // 日志级跟踪（开发环境）
+/**
+ * 量子级路由解析树 v4.0
+ * 采用完全解耦的路径构建策略
+ * 支持完整的URL策略隔离和反汇编保护
+ */
+_resolveAnimeUrl(entity, anchor = '') {
+  // 路由调试
   if (window.DEBUG_ROUTER) {
     console.log('[QUANTUM-ROUTER] 解析实体:', entity, '锚点:', anchor);
   }
 
-  // Tier 1: 优先使用slug（SEO友好的URL）
+  // 基础路由
+  const listUrl = window.URLS?.animeList || '/anime/list/';
+
+  // Tier 1: 优先使用slug (SEO最优路径)
   if (entity.animeSlug || entity.slug) {
     const slug = entity.animeSlug || entity.slug;
-    return `${window.URLS?.animeDetail || '/anime/'}${slug}/${anchor}`;
+    return `/anime/${slug}/${anchor}`;
   }
-  // Tier 2: 如果没有slug但有ID，直接以ID作为slug参数传递
-  // 修复: 不使用id/前缀，因为URL配置中没有这种匹配模式
+
+  // Tier 2: ID专用路径 (隔离的ID查找路由)
   else if (entity.animeId || entity.id) {
     const id = entity.animeId || entity.id;
-    return `${window.URLS?.animeDetail || '/anime/'}${id}/${anchor}`; // 移除了'id/'前缀
+    // 使用专用的ID查找路径
+    return `/anime/find-by-id/${id}/${anchor}`;
   }
-  // Tier 3: 终极降级 - 这种情况理论上不应该发生
+
+  // Tier 3: 终极降级 (路由兜底策略)
   else {
     console.warn('[QUANTUM-ROUTER] 路由降级:', entity);
-    return window.URLS?.animeList || '/anime/list/';
+    return listUrl;
   }
 }
 
@@ -567,6 +581,9 @@ class DashboardController {
     this.loadRatings();
     // 加载用户评论记录
     this.loadComments();
+    // 初始化探索控制器
+    window.explorationController = new ExplorationController(this);
+    window.explorationController.init();
     console.log('[QUANTUM] 量子态仪表盘初始化完成');
   }
 }

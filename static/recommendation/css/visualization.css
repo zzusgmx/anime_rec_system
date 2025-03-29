@@ -1,0 +1,180 @@
+/* 量子态数据可视化样式 */
+
+/* 可视化导航 */
+.viz-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 1.5rem;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 10px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.viz-nav-btn {
+  padding: 10px 15px;
+  border: none;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  color: #1e293b;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viz-nav-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 1);
+}
+
+.viz-nav-btn.active {
+  background: var(--quantum-gradient, linear-gradient(135deg, #6d28d9, #8b5cf6, #10b981));
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.viz-nav-btn i {
+  margin-right: 6px;
+}
+
+/* 可视化面板 */
+.viz-panel {
+  display: none;
+}
+
+.viz-panel.active {
+  display: block;
+  animation: fadeInUp 0.5s ease forwards;
+}
+
+/* 图表容器 */
+.chart-container {
+  height: 400px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.03);
+}
+
+/* 仪表板标签 */
+.dashboard-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 2rem;
+  position: relative;
+  z-index: 5;
+}
+
+.dashboard-tab {
+  padding: 12px 20px;
+  border: none;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 10px;
+  color: #1e293b;
+  font-weight: 600;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-tab:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.dashboard-tab.active {
+  background: var(--quantum-gradient, linear-gradient(135deg, #6d28d9, #8b5cf6, #10b981));
+  color: white;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+}
+
+.dashboard-tab i {
+  margin-right: 8px;
+  font-size: 1.2rem;
+}
+
+/* 仪表板面板 */
+.dashboard-panel {
+  display: none;
+}
+
+.dashboard-panel.active {
+  display: block;
+  animation: fadeIn 0.5s ease forwards;
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .viz-nav {
+    gap: 5px;
+  }
+
+  .viz-nav-btn {
+    padding: 8px 12px;
+    font-size: 0.9rem;
+  }
+
+  .dashboard-tab {
+    padding: 10px 15px;
+    font-size: 1rem;
+  }
+
+  .chart-container {
+    height: 350px;
+  }
+}
+
+@media (max-width: 576px) {
+  .viz-nav {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .viz-nav-btn {
+    width: 100%;
+  }
+
+  .dashboard-tabs {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .dashboard-tab {
+    width: 100%;
+  }
+
+  .chart-container {
+    height: 300px;
+  }
+}

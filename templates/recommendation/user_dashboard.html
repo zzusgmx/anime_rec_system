@@ -15,8 +15,17 @@
   <link rel="stylesheet" href="/static/css/interaction.css">
   <link rel="stylesheet" href="/static/recommendation/css/recommendation-enhanced.css">
 
+  <!-- 添加数据可视化CSS -->
+  <link rel="stylesheet" href="/static/recommendation/css/visualization.css">
+
+  <!-- ECharts 库 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.0/echarts.min.js"></script>
+
   <!-- Dashboard.js 脚本 -->
   <script src="/static/recommendation/js/dashboard.js" defer></script>
+
+  <!-- 可视化引擎脚本 -->
+  <script src="/static/recommendation/js/visualization.js" defer></script>
 
   <style>
     :root {
@@ -820,164 +829,198 @@
 
   <div class="container">
     <div class="row">
-      <!-- 主内容区域 -->
-      <div class="col-lg-8">
-        <!-- 个性化推荐 -->
-        <div class="section-card">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="section-title mb-0">
-              <i class="fas fa-magic"></i>为您推荐
-            </h2>
-            <a href="{% url 'recommendation:recommendations' %}" class="btn btn-sm btn-outline-primary rounded-pill">
-              <i class="fas fa-eye me-1"></i>查看全部推荐
-            </a>
-          </div>
-
-          <!-- 推荐算法快速选择 -->
-          <div class="quantum-strategy-grid">
-            <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector active" data-strategy="hybrid" data-tooltip="基于混合算法推荐">
-              <i class="fas fa-magic quantum-strategy-icon icon-hybrid"></i>
-              <span>混合推荐</span>
-            </a>
-            <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="cf" data-tooltip="基于相似用户偏好">
-              <i class="fas fa-users quantum-strategy-icon icon-cf"></i>
-              <span>协同过滤</span>
-            </a>
-            <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="content" data-tooltip="基于动漫内容特征">
-              <i class="fas fa-tags quantum-strategy-icon icon-content"></i>
-              <span>基于内容</span>
-            </a>
-            <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="ml" data-tooltip="使用GBDT机器学习模型">
-              <i class="fas fa-brain quantum-strategy-icon icon-ml"></i>
-              <span>基于GBDT</span>
-            </a>
-            <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="popular" data-tooltip="热门动漫推荐">
-              <i class="fas fa-fire quantum-strategy-icon icon-popular"></i>
-              <span>热门推荐</span>
-            </a>
-          </div>
-
-          <!-- 推荐列表 -->
-          <div class="recommendation-cards" id="recommendationContainer">
-            <!-- 加载状态 -->
-            <div class="loading-container">
-              <div class="quantum-spinner"></div>
-              <p class="mt-3">量子态计算中...</p>
-            </div>
-          </div>
+      <!-- 主内容区域 - 添加仪表板标签 -->
+      <div class="col-12">
+        <!-- 添加新的仪表板导航 -->
+        <div class="dashboard-tabs mb-4">
+          <button class="dashboard-tab active" data-tab-target="recommendationPanel">
+            <i class="fas fa-magic me-2"></i>推荐内容
+          </button>
+          <button class="dashboard-tab" data-tab-target="activityPanel">
+            <i class="fas fa-history me-2"></i>活动记录
+          </button>
+          <button class="dashboard-tab" data-tab-target="visualizationPanel">
+            <i class="fas fa-chart-bar me-2"></i>数据分析
+          </button>
         </div>
 
-        <!-- 最近评分 -->
-        <div class="section-card">
-          <h2 class="section-title">
-            <i class="fas fa-star"></i>最近评分
-          </h2>
+        <!-- 仪表板面板容器 -->
+        <div class="dashboard-content">
+          <!-- 推荐面板 -->
+          <div class="dashboard-panel active" id="recommendationPanel">
+            <div class="row">
+              <div class="col-lg-8">
+                <!-- 个性化推荐 -->
+                <div class="section-card">
+                  <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="section-title mb-0">
+                      <i class="fas fa-magic"></i>为您推荐
+                    </h2>
+                    <a href="{% url 'recommendation:recommendations' %}" class="btn btn-sm btn-outline-primary rounded-pill">
+                      <i class="fas fa-eye me-1"></i>查看全部推荐
+                    </a>
+                  </div>
 
-          <div id="ratingsContainer">
-            <!-- 数据加载中 -->
-            <div class="loading-container">
-              <div class="quantum-spinner"></div>
-              <p class="mt-3">加载评分记录中...</p>
+                  <!-- 推荐算法快速选择 -->
+                  <div class="quantum-strategy-grid">
+                    <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector active" data-strategy="hybrid" data-tooltip="基于混合算法推荐">
+                      <i class="fas fa-magic quantum-strategy-icon icon-hybrid"></i>
+                      <span>混合推荐</span>
+                    </a>
+                    <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="cf" data-tooltip="基于相似用户偏好">
+                      <i class="fas fa-users quantum-strategy-icon icon-cf"></i>
+                      <span>协同过滤</span>
+                    </a>
+                    <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="content" data-tooltip="基于动漫内容特征">
+                      <i class="fas fa-tags quantum-strategy-icon icon-content"></i>
+                      <span>基于内容</span>
+                    </a>
+                    <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="ml" data-tooltip="使用GBDT机器学习模型">
+                      <i class="fas fa-brain quantum-strategy-icon icon-ml"></i>
+                      <span>基于GBDT</span>
+                    </a>
+                    <a href="javascript:void(0)" class="quantum-strategy-card quantum-tooltip strategy-selector" data-strategy="popular" data-tooltip="热门动漫推荐">
+                      <i class="fas fa-fire quantum-strategy-icon icon-popular"></i>
+                      <span>热门推荐</span>
+                    </a>
+                  </div>
+
+                  <!-- 推荐列表 -->
+                  <div class="recommendation-cards" id="recommendationContainer">
+                    <!-- 加载状态 -->
+                    <div class="loading-container">
+                      <div class="quantum-spinner"></div>
+                      <p class="mt-3">量子态计算中...</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-lg-4">
+                <!-- 算法说明 -->
+                <div class="section-card">
+                  <h2 class="section-title">
+                    <i class="fas fa-brain"></i>量子推荐算法
+                  </h2>
+
+                  <div class="p-2">
+                    <div class="algo-box border-hybrid mb-3">
+                      <div class="algo-title">
+                        <i class="fas fa-magic me-2 icon-hybrid"></i>混合推荐
+                      </div>
+                      <p class="algo-desc">量子态算法融合，使用高维概率分布模型，结合多种推荐策略动态权重</p>
+                    </div>
+
+                    <div class="algo-box border-cf mb-3">
+                      <div class="algo-title">
+                        <i class="fas fa-users me-2 icon-cf"></i>协同过滤
+                      </div>
+                      <p class="algo-desc">基于用户行为相似性的矩阵分解算法，采用余弦相似度进行降维映射</p>
+                    </div>
+
+                    <div class="algo-box border-content mb-3">
+                      <div class="algo-title">
+                        <i class="fas fa-tags me-2 icon-content"></i>基于内容
+                      </div>
+                      <p class="algo-desc">使用特征向量计算内容相似度，分析动漫的语义空间几何关系</p>
+                    </div>
+
+                    <div class="algo-box border-ml mb-3">
+                      <div class="algo-title">
+                        <i class="fas fa-brain me-2 icon-ml"></i>基于GBDT
+                      </div>
+                      <p class="algo-desc">梯度提升决策树深度学习模型，从特征空间中提取非线性模式</p>
+                    </div>
+
+                    <div class="algo-box border-popular mb-3">
+                      <div class="algo-title">
+                        <i class="fas fa-fire me-2 icon-popular"></i>热门推荐
+                      </div>
+                      <p class="algo-desc">基于集体智能的热点检测算法，使用时间衰减模型优化推荐</p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 快速链接 -->
+                <div class="section-card">
+                  <h2 class="section-title">
+                    <i class="fas fa-link"></i>快速链接
+                  </h2>
+
+                  <div class="list-group">
+                    <a href="{% url 'anime:anime_list' %}" class="list-group-item list-group-item-action">
+                      <i class="fas fa-list"></i>浏览所有动漫
+                    </a>
+                    <a href="{% url 'anime:anime_type_list' %}" class="list-group-item list-group-item-action">
+                      <i class="fas fa-tags"></i>动漫类型列表
+                    </a>
+                    <a href="{% url 'recommendation:recommendations' %}" class="list-group-item list-group-item-action">
+                      <i class="fas fa-magic"></i>个性化推荐
+                    </a>
+                    <a href="/profile/" class="list-group-item list-group-item-action">
+                      <i class="fas fa-user-cog"></i>管理个人资料
+                    </a>
+                    <a href="{% url 'recommendation:favorites' %}" class="list-group-item list-group-item-action">
+                      <i class="fas fa-heart"></i>我的收藏
+                    </a>
+                    <a href="{% url 'recommendation:browsing_history' %}" class="list-group-item list-group-item-action">
+                      <i class="fas fa-history"></i>浏览历史
+                    </a>
+                    <a href="{% url 'recommendation:user_comments' %}" class="list-group-item list-group-item-action">
+                      <i class="fas fa-comments me-2"></i>我的评论
+                    </a>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- 侧边栏 -->
-      <div class="col-lg-4">
-        <!-- 最近评论 -->
-        <div class="section-card">
-          <h2 class="section-title">
-            <i class="fas fa-comment"></i>
-            <a href="{% url 'recommendation:user_comments' %}" style="text-decoration: none; color: inherit;">
-              最近评论
-              <small class="ms-2 fs-6">
-                <i class="fas fa-external-link-alt"></i>
-              </small>
-            </a>
-          </h2>
+          <!-- 活动记录面板 -->
+          <div class="dashboard-panel" id="activityPanel">
+            <div class="row">
+              <div class="col-lg-6">
+                <!-- 最近评分 -->
+                <div class="section-card">
+                  <h2 class="section-title">
+                    <i class="fas fa-star"></i>最近评分
+                  </h2>
+                  <div id="ratingsContainer">
+                    <!-- 数据加载中 -->
+                    <div class="loading-container">
+                      <div class="quantum-spinner"></div>
+                      <p class="mt-3">加载评分记录中...</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-          <div id="commentsContainer">
-            <!-- 数据加载中 -->
-            <div class="loading-container">
-              <div class="quantum-spinner"></div>
-              <p class="mt-3">加载评论记录中...</p>
+              <div class="col-lg-6">
+                <!-- 最近评论 -->
+                <div class="section-card">
+                  <h2 class="section-title">
+                    <i class="fas fa-comment"></i>
+                    <a href="{% url 'recommendation:user_comments' %}" style="text-decoration: none; color: inherit;">
+                      最近评论
+                      <small class="ms-2 fs-6">
+                        <i class="fas fa-external-link-alt"></i>
+                      </small>
+                    </a>
+                  </h2>
+                  <div id="commentsContainer">
+                    <!-- 数据加载中 -->
+                    <div class="loading-container">
+                      <div class="quantum-spinner"></div>
+                      <p class="mt-3">加载评论记录中...</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- 快速链接 -->
-        <div class="section-card">
-          <h2 class="section-title">
-            <i class="fas fa-link"></i>快速链接
-          </h2>
-
-          <div class="list-group">
-            <a href="{% url 'anime:anime_list' %}" class="list-group-item list-group-item-action">
-              <i class="fas fa-list"></i>浏览所有动漫
-            </a>
-            <a href="{% url 'anime:anime_type_list' %}" class="list-group-item list-group-item-action">
-              <i class="fas fa-tags"></i>动漫类型列表
-            </a>
-            <a href="{% url 'recommendation:recommendations' %}" class="list-group-item list-group-item-action">
-              <i class="fas fa-magic"></i>个性化推荐
-            </a>
-            <a href="/profile/" class="list-group-item list-group-item-action">
-              <i class="fas fa-user-cog"></i>管理个人资料
-            </a>
-            <a href="{% url 'recommendation:favorites' %}" class="list-group-item list-group-item-action">
-              <i class="fas fa-heart"></i>我的收藏
-            </a>
-            <a href="{% url 'recommendation:browsing_history' %}" class="list-group-item list-group-item-action">
-              <i class="fas fa-history"></i>浏览历史
-            </a>
-              <a href="{% url 'recommendation:user_comments' %}" class="list-group-item list-group-item-action">
-                <i class="fas fa-comments me-2"></i>我的评论
-                </a>
-          </div>
-        </div>
-
-        <!-- 推荐算法说明 -->
-        <div class="section-card">
-          <h2 class="section-title">
-            <i class="fas fa-brain"></i>量子推荐算法
-          </h2>
-
-          <div class="p-2">
-            <div class="algo-box border-hybrid mb-3">
-              <div class="algo-title">
-                <i class="fas fa-magic me-2 icon-hybrid"></i>混合推荐
-              </div>
-              <p class="algo-desc">量子态算法融合，使用高维概率分布模型，结合多种推荐策略动态权重</p>
-            </div>
-
-            <div class="algo-box border-cf mb-3">
-              <div class="algo-title">
-                <i class="fas fa-users me-2 icon-cf"></i>协同过滤
-              </div>
-              <p class="algo-desc">基于用户行为相似性的矩阵分解算法，采用余弦相似度进行降维映射</p>
-            </div>
-
-            <div class="algo-box border-content mb-3">
-              <div class="algo-title">
-                <i class="fas fa-tags me-2 icon-content"></i>基于内容
-              </div>
-              <p class="algo-desc">使用特征向量计算内容相似度，分析动漫的语义空间几何关系</p>
-            </div>
-
-            <div class="algo-box border-ml mb-3">
-              <div class="algo-title">
-                <i class="fas fa-brain me-2 icon-ml"></i>基于GBDT
-              </div>
-              <p class="algo-desc">梯度提升决策树深度学习模型，从特征空间中提取非线性模式</p>
-            </div>
-
-            <div class="algo-box border-popular mb-3">
-              <div class="algo-title">
-                <i class="fas fa-fire me-2 icon-popular"></i>热门推荐
-              </div>
-              <p class="algo-desc">基于集体智能的热点检测算法，使用时间衰减模型优化推荐</p>
-            </div>
+          <!-- 数据可视化面板 -->
+          <div class="dashboard-panel" id="visualizationPanel">
+            {% include 'recommendation/partials/visualization_components.html' %}
           </div>
         </div>
       </div>
@@ -997,23 +1040,49 @@
     window.DEBUG_ROUTER = false; // 设为true开启路由调试
     // 添加这行 - 定义全局URL对象
     window.URLS = {
-    // 基础路由
-    animeList: "{% url 'anime:anime_list' %}",
-    recommendations: "{% url 'recommendation:recommendations' %}",
-    browsingHistory: "{% url 'recommendation:browsing_history' %}",
-    favorites: "{% url 'recommendation:favorites' %}",
-    userComments: "{% url 'recommendation:user_comments' %}",
+      // 基础路由
+      animeList: "{% url 'anime:anime_list' %}",
+      recommendations: "{% url 'recommendation:recommendations' %}",
+      browsingHistory: "{% url 'recommendation:browsing_history' %}",
+      favorites: "{% url 'recommendation:favorites' %}",
+      userComments: "{% url 'recommendation:user_comments' %}",
 
-    // 动态路由基地址 - 用于构建详情页URL
-    animeDetail: "/anime/", // 确保这与您的URL配置一致
+      // 动态路由基地址 - 用于构建详情页URL
+      animeDetail: "/anime/", // 确保这与您的URL配置一致
 
-    // 元数据
-    version: "1.0.0",
-    buildTimestamp: "{{ build_timestamp|default:'2025-03-29' }}"
-  };
+      // 元数据
+      version: "1.0.0",
+      buildTimestamp: "{{ build_timestamp|default:'2025-03-29' }}"
+    };
   </script>
 
-  <!-- 引入仪表盘控制器脚本 -->
+  <!-- 添加仪表板标签切换脚本 -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // 获取所有标签按钮和面板
+      const tabButtons = document.querySelectorAll('.dashboard-tab');
+      const panels = document.querySelectorAll('.dashboard-panel');
+
+      // 为每个按钮添加点击事件
+      tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+          // 获取目标面板ID
+          const targetId = this.dataset.tabTarget;
+
+          // 移除所有活动状态
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          panels.forEach(panel => panel.classList.remove('active'));
+
+          // 设置当前按钮和面板为活动状态
+          this.classList.add('active');
+          document.getElementById(targetId).classList.add('active');
+
+          // 触发窗口调整事件，让图表重新绘制
+          window.dispatchEvent(new Event('resize'));
+        });
+      });
+    });
+  </script>
 
   <!-- 初始化仪表盘 -->
   <script>

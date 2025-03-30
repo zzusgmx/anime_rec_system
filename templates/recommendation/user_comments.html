@@ -267,30 +267,39 @@
       </div>
 
       <!-- 快速链接 -->
-      <div class="card">
-        <div class="card-header bg-primary text-white">
-          <i class="fas fa-link me-1"></i> 快速链接
-        </div>
-        <div class="card-body">
-          <div class="list-group">
-            <a href="{% url 'anime:anime_list' %}" class="list-group-item list-group-item-action">
-              <i class="fas fa-list me-2"></i>浏览所有动漫
-            </a>
-            <a href="{% url 'recommendation:recommendations' %}" class="list-group-item list-group-item-action">
-              <i class="fas fa-magic me-2"></i>个性化推荐
-            </a>
-            <a href="{% url 'recommendation:browsing_history' %}" class="list-group-item list-group-item-action">
-              <i class="fas fa-history me-2"></i>浏览历史
-            </a>
-            <a href="{% url 'recommendation:favorites' %}" class="list-group-item list-group-item-action">
-              <i class="fas fa-heart me-2"></i>我的收藏
-            </a>
-            <a href="{% url 'recommendation:user_dashboard' %}" class="list-group-item list-group-item-action">
-              <i class="fas fa-chart-line me-2"></i>推荐中心
-            </a>
-          </div>
-        </div>
-      </div>
+<div class="card">
+  <div class="card-header bg-primary text-white">
+    <i class="fas fa-link me-1"></i> 快速链接
+  </div>
+  <div class="card-body">
+    <div class="list-group">
+      <a href="{% url 'anime:anime_list' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-list me-2"></i>浏览所有动漫
+      </a>
+      <a href="{% url 'anime:anime_type_list' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-tags me-2"></i>动漫类型列表
+      </a>
+      <a href="{% url 'recommendation:recommendations' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-magic me-2"></i>个性化推荐
+      </a>
+      <a href="/profile/" class="list-group-item list-group-item-action">
+        <i class="fas fa-user-cog me-2"></i>管理个人资料
+      </a>
+      <a href="{% url 'recommendation:user_ratings' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-star me-2"></i>我的评分
+      </a>
+      <a href="{% url 'recommendation:browsing_history' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-history me-2"></i>浏览历史
+      </a>
+      <a href="{% url 'recommendation:user_comments' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-comments me-2"></i>我的评论
+      </a>
+      <a href="{% url 'recommendation:user_dashboard' %}" class="list-group-item list-group-item-action">
+        <i class="fas fa-chart-line me-2"></i>推荐中心
+      </a>
+    </div>
+  </div>
+</div>
     </div>
   </div>
 </div>

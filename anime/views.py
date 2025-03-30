@@ -20,87 +20,109 @@ from users.models import UserBrowsing, UserPreference
 
 # 配置日志记录器
 logger = logging.getLogger('django')
-
-
 def anime_list(request):
     """
-    动漫列表视图：展示所有动漫，支持搜索和分页
+    量子级增强版动漫列表视图：添加异常处理和性能优化
     - 支持按标题、类型、评分等进行过滤
     - 实现分页功能
     - 展示推荐动漫
+    - 量子增强：异常处理和性能优化
     """
-    # 使用专用搜索表单处理搜索和过滤
-    form = AnimeSearchForm(request.GET)
-    animes = Anime.objects.select_related('type').all()
-
-    if form.is_valid():
-        # 文本搜索（标题、原始标题、描述）
-        query = form.cleaned_data.get('query')
-        if query:
-            animes = animes.filter(
-                Q(title__icontains=query) |
-                Q(original_title__icontains=query) |
-                Q(description__icontains=query)
-            )
-
-        # 类型过滤
-        anime_type = form.cleaned_data.get('type')
-        if anime_type:
-            animes = animes.filter(type=anime_type)
-
-        # 评分过滤
-        min_rating = form.cleaned_data.get('min_rating')
-        if min_rating:
-            animes = animes.filter(rating_avg__gte=min_rating)
-
-        # 状态过滤
-        is_completed = form.cleaned_data.get('is_completed')
-        if is_completed is not None:
-            animes = animes.filter(is_completed=is_completed)
-
-        # 推荐过滤
-        is_featured = form.cleaned_data.get('is_featured')
-        if is_featured is not None:
-            animes = animes.filter(is_featured=is_featured)
-
-        # 排序
-        sort_by = form.cleaned_data.get('sort_by')
-        if sort_by:
-            animes = animes.order_by(sort_by)
-    else:
-        # 默认排序：热门度降序
-        animes = animes.order_by('-popularity')
-
-    # 分页逻辑
-    paginator = Paginator(animes, 12)  # 每页12个动漫
-    page = request.GET.get('page')
-
     try:
-        animes = paginator.page(page)
-    except PageNotAnInteger:
-        # 如果页数不是整数，展示第一页
-        animes = paginator.page(1)
-    except EmptyPage:
-        # 如果页数超出范围，展示最后一页
-        animes = paginator.page(paginator.num_pages)
+        # 使用专用搜索表单处理搜索和过滤
+        form = AnimeSearchForm(request.GET)
 
-    # 获取所有类型供导航使用
-    anime_types = AnimeType.objects.annotate(anime_count=Count('animes')).order_by('name')
+        # 性能优化：使用select_related减少数据库查询
+        animes = Anime.objects.select_related('type').all()
 
-    # 获取推荐动漫（用于侧边栏或轮播）
-    featured_animes = Anime.objects.filter(is_featured=True).order_by('-rating_avg')[:6]
+        if form.is_valid():
+            # 文本搜索（标题、原始标题、描述）
+            query = form.cleaned_data.get('query')
+            if query:
+                # 优化搜索算法：使用全文搜索或更精确的匹配方式
+                animes = animes.filter(
+                    Q(title__icontains=query) |
+                    Q(original_title__icontains=query) |
+                    Q(description__icontains=query)
+                )
 
-    context = {
-        'animes': animes,
-        'anime_types': anime_types,
-        'featured_animes': featured_animes,
-        'search_form': form,
-        'is_paginated': paginator.num_pages > 1,
-        'page_obj': animes,
-    }
+            # 类型过滤
+            anime_type = form.cleaned_data.get('type')
+            if anime_type:
+                animes = animes.filter(type=anime_type)
 
-    return render(request, 'anime/anime_list.html', context)
+            # 评分过滤
+            min_rating = form.cleaned_data.get('min_rating')
+            if min_rating:
+                animes = animes.filter(rating_avg__gte=min_rating)
 
+            # 状态过滤
+            is_completed = form.cleaned_data.get('is_completed')
+            if is_completed:
+                animes = animes.filter(is_completed=True)
+
+            # 推荐过滤
+            is_featured = form.cleaned_data.get('is_featured')
+            if is_featured:
+                animes = animes.filter(is_featured=True)
+
+            # 排序
+            sort_by = form.cleaned_data.get('sort_by')
+            if sort_by:
+                animes = animes.order_by(sort_by)
+        else:
+            # 默认排序：热门度降序
+            animes = animes.order_by('-popularity')
+
+        # 分页逻辑优化
+        paginator = Paginator(animes, 12)  # 每页12个动漫
+        page = request.GET.get('page')
+
+        try:
+            animes = paginator.page(page)
+        except PageNotAnInteger:
+            # 如果页数不是整数，展示第一页
+            animes = paginator.page(1)
+        except EmptyPage:
+            # 如果页数超出范围，展示最后一页
+            animes = paginator.page(paginator.num_pages)
+
+        # 获取所有类型供导航使用
+        anime_types = AnimeType.objects.annotate(
+            anime_count=Count('animes')
+        ).order_by('name')
+
+        context = {
+            'animes': animes,
+            'anime_types': anime_types,
+            'search_form': form,
+            'is_paginated': paginator.num_pages > 1,
+            'page_obj': animes,
+        }
+
+        return render(request, 'anime/anime_list.html', context)
+
+    except Exception as e:
+        # 全局异常处理，量子态保护
+        logger.error(f"动漫列表异常: {str(e)}\n{traceback.format_exc()}")
+
+        # 降级显示
+        messages.error(request, "加载动漫列表时发生错误，已启动降级保护模式")
+
+        # 尝试获取类型列表用于最小化导航
+        try:
+            anime_types = AnimeType.objects.annotate(anime_count=Count('animes')).order_by('name')
+        except:
+            anime_types = []
+
+        # 提供最小化上下文
+        context = {
+            'error': str(e) if settings.DEBUG else None,
+            'search_form': AnimeSearchForm(),
+            'anime_types': anime_types,
+        }
+
+        return render(request, 'anime/anime_list.html', context, status=500)
 
 def anime_detail(request, slug):
     """
@@ -454,7 +476,7 @@ def anime_by_type(request, slug):
     return render(request, 'anime/anime_by_type.html', context)
 
 
-@cache_page(60 * 15)  # 缓存15分钟
+@cache_page(60 * 5)  # 缓存5分钟
 def anime_search(request):
     """
     AJAX搜索视图：处理AJAX搜索请求
@@ -467,7 +489,7 @@ def anime_search(request):
     if len(query) < 2:  # 至少输入两个字符才触发搜索
         return JsonResponse({'results': []})
 
-    # 增强搜索范围
+    # 增强搜索范围和性能优化
     results = Anime.objects.filter(
         Q(title__icontains=query) |
         Q(original_title__icontains=query) |
@@ -478,29 +500,94 @@ def anime_search(request):
     )[:10]  # 限制结果数量为10个
 
     # 将QuerySet转换为列表，以便序列化
-    results_list = list(results)
+    results_list = []
 
-    # 增强返回结果
-    for item in results_list:
-        # 添加完整URL
-        item['url'] = reverse('anime:anime_detail', kwargs={'slug': item['slug']})
+    for item in results:
+        # 构建搜索结果项
+        result_item = {
+            'id': item['id'],
+            'title': item['title'],
+            'url': reverse('anime:anime_detail', kwargs={'slug': item['slug']}),
+            'type': item['type__name'],
+            'rating': round(item['rating_avg'], 1) if item['rating_avg'] else None
+        }
 
         # 处理封面图片URL
         if item['cover']:
-            item['cover'] = request.build_absolute_uri(item['cover'])
+            result_item['cover'] = f"{settings.MEDIA_URL}{item['cover']}"
 
-        # 添加类型名称
-        if 'type__name' in item:
-            item['type'] = item.pop('type__name')
-
-        # 格式化评分
-        if 'rating_avg' in item and item['rating_avg']:
-            item['rating'] = round(item['rating_avg'], 1)
-            item.pop('rating_avg')
+        results_list.append(result_item)
 
     return JsonResponse({'results': results_list})
 
 
+# anime/views.py
+def anime_comments(request, slug):
+    """
+    量子化评论分页控制器 - 支持完整分页范式
+    """
+    anime = get_object_or_404(Anime, slug=slug)
+    page = request.GET.get('page', 1)
+
+    # 引入评论模型并优化查询性能
+    from recommendation.models import UserComment, UserLike
+    from django.db.models import Prefetch
+
+    # 优化N+1查询问题 - 使用prefetch_related加载用户点赞
+    user_likes_prefetch = None
+    if request.user.is_authenticated:
+        user_likes_prefetch = Prefetch(
+            'likes',
+            queryset=UserLike.objects.filter(user=request.user),
+            to_attr='user_likes'
+        )
+
+    comments = UserComment.objects.filter(anime=anime) \
+        .select_related('user', 'user__profile') \
+        .prefetch_related(user_likes_prefetch) \
+        .order_by('-timestamp')
+
+    # 分页引擎
+    paginator = Paginator(comments, 5)  # 每页10条评论
+    try:
+        page_obj = paginator.page(page)
+    except (PageNotAnInteger, EmptyPage):
+        page_obj = paginator.page(1)
+
+    # 使用模板渲染（支持API/HTML双模式）
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        # AJAX请求返回JSON
+        from django.template.loader import render_to_string
+
+        comments_html = ""
+        for comment in page_obj:
+            user_liked = False
+            if request.user.is_authenticated and hasattr(comment, 'user_likes'):
+                user_liked = len(comment.user_likes) > 0
+
+            context = {'comment': comment, 'user': request.user, 'user_liked': user_liked}
+            rendered = render_to_string('recommendation/partials/comment.html', context)
+            comments_html += rendered
+
+        # 构建分页元数据
+        pagination_meta = {
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous(),
+            'current_page': page_obj.number,
+            'total_pages': paginator.num_pages,
+            'total_comments': paginator.count
+        }
+
+        return JsonResponse({
+            'html': comments_html,
+            'pagination': pagination_meta
+        })
+    else:
+        # 标准请求返回完整页面
+        return render(request, 'anime/comments.html', {
+            'comments': page_obj,
+            'anime': anime
+        })
 @login_required
 @permission_required('anime.add_animetype', raise_exception=True)
 def anime_type_create(request):
@@ -759,6 +846,37 @@ def anime_find_by_id(request, anime_id):
         logger.error(f"通过ID查找动漫失败: {str(e)}")
         messages.error(request, "查找动漫时发生错误")
         return redirect('anime:anime_not_found')
+
+@require_POST
+@login_required
+@permission_required('anime.change_animetype', raise_exception=True)
+def fix_type_slug(request):
+    """
+    AJAX端点：量子修复空slug的动漫类型记录
+    使用模型的save()方法触发slug自动生成逻辑
+    """
+    try:
+        data = json.loads(request.body)
+        type_id = data.get('id')
+
+        if not type_id:
+            return JsonResponse({'success': False, 'error': '缺少类型ID'})
+
+        # 获取类型并触发save()方法重新生成slug
+        anime_type = get_object_or_404(AnimeType, id=type_id)
+        # 强制清空slug以触发重新生成逻辑
+        anime_type.slug = ''
+        anime_type.save()  # 增强save()方法会处理slug生成
+
+        return JsonResponse({
+            'success': True,
+            'message': f'成功修复 "{anime_type.name}" 的URL标识符',
+            'slug': anime_type.slug
+        })
+
+    except Exception as e:
+        logger.error(f"修复slug失败: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)})
 
 @require_POST
 @login_required

@@ -1,4 +1,6 @@
 # anime/models.py
+# 注意：高度优化的实体模型 - 量子级数据结构设计
+
 from django.db import models
 from django.utils.text import slugify
 import uuid
@@ -110,6 +112,9 @@ class Anime(TimeStampedModel):
             models.Index(fields=['type', '-popularity'], name='anime_type_pop_idx'),
             models.Index(fields=['type', '-rating_avg'], name='anime_type_rating_idx'),
             models.Index(fields=['-release_date'], name='anime_release_idx'),
+            models.Index(fields=['title'], name='anime_title_idx'),  # 添加标题索引
+            models.Index(fields=['is_completed', '-popularity'], name='anime_complete_pop_idx'),  # 完结状态索引
+            models.Index(fields=['is_featured', '-popularity'], name='anime_featured_pop_idx'),  # 推荐状态索引
         ]
         ordering = ['-popularity', '-release_date']
 

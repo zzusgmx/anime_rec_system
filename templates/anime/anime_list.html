@@ -211,12 +211,60 @@
         border-color: #b794f4;
     }
 
-    /* 添加加载指示器样式 */
+    /* 加载指示器样式 */
     .search-loading {
         position: absolute;
         right: 10px;
         top: 50%;
         transform: translateY(-50%);
+    }
+
+    /* 量子功能: 错误信息样式增强 */
+    .search-error {
+        padding: 15px;
+        text-align: center;
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+        color: #856404;
+    }
+
+    /* 量子功能: 添加卡片平滑过渡效果 */
+    .anime-card {
+        transition: height 0.3s ease-out, transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    /* 量子功能: 消除CLS (Cumulative Layout Shift) */
+    .card-img-container img {
+        aspect-ratio: 2/3;
+        background-color: #f0f0f0;
+    }
+
+    /* 量子功能: 修复按钮波纹效果 */
+    .btn {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn::after {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+        background-image: radial-gradient(circle, #fff 10%, transparent 10.01%);
+        background-repeat: no-repeat;
+        background-position: 50%;
+        transform: scale(10, 10);
+        opacity: 0;
+        transition: transform .3s, opacity .5s;
+    }
+
+    .btn:active::after {
+        transform: scale(0, 0);
+        opacity: .2;
+        transition: 0s;
     }
 </style>
 {% endblock %}
@@ -225,64 +273,85 @@
 <div class="container py-4">
     <h1 class="mb-4">动漫列表</h1>
 
-    <!-- 搜索和过滤区域 -->
-    <div class="search-container">
-        <form method="get" action="{% url 'anime:anime_list' %}" id="searchForm">
-            <div class="row">
-                <div class="col-md-4 mb-3 position-relative">
-                    {{ search_form.query }}
-                    <div class="search-results" id="searchResults"></div>
-                </div>
+    <!-- 搜索和过滤区域重构 -->
+<div class="search-container">
+    <form method="get" action="{% url 'anime:anime_list' %}" id="searchForm">
+        <div class="row">
+            <div class="col-md-4 mb-3 position-relative">
+                <input type="text" name="query" class="form-control"
+                       placeholder="输入动漫标题或描述关键词..."
+                       value="{{ request.GET.query|default:'' }}"
+                       autocomplete="off">
+                <div class="search-results" id="searchResults"></div>
+            </div>
 
-                <div class="col-md-3 mb-3">
-                    {{ search_form.type }}
-                </div>
+            <div class="col-md-3 mb-3">
+                <select name="type" class="form-select">
+                    <option value="">所有类型</option>
+                    {% for type in anime_types %}
+                    <option value="{{ type.id }}" {% if request.GET.type == type.id|stringformat:"i" %}selected{% endif %}>
+                        {{ type.name }} ({{ type.anime_count }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
 
-                <div class="col-md-2 mb-3">
-                    {{ search_form.sort_by }}
-                </div>
+            <div class="col-md-2 mb-3">
+                <select name="sort_by" class="form-select">
+                    <option value="-popularity" {% if request.GET.sort_by == '-popularity' %}selected{% endif %}>热门度 ↓</option>
+                    <option value="popularity" {% if request.GET.sort_by == 'popularity' %}selected{% endif %}>热门度 ↑</option>
+                    <option value="-rating_avg" {% if request.GET.sort_by == '-rating_avg' %}selected{% endif %}>评分 ↓</option>
+                    <option value="rating_avg" {% if request.GET.sort_by == 'rating_avg' %}selected{% endif %}>评分 ↑</option>
+                    <option value="-release_date" {% if request.GET.sort_by == '-release_date' %}selected{% endif %}>发布日期 ↓</option>
+                    <option value="release_date" {% if request.GET.sort_by == 'release_date' %}selected{% endif %}>发布日期 ↑</option>
+                </select>
+            </div>
 
-                <div class="col-md-3 mb-3">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-search me-2"></i>搜索
-                    </button>
+            <div class="col-md-3 mb-3">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-2"></i>搜索
+                </button>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <div class="input-group">
+                    <span class="input-group-text">最低评分</span>
+                    <input type="number" class="form-control" name="min_rating"
+                           min="0" max="5" step="0.1"
+                           value="{{ request.GET.min_rating|default:'' }}">
                 </div>
             </div>
 
-            <div class="row">
-                <div class="col-md-3 mb-3">
-                    <div class="input-group">
-                        <span class="input-group-text">最低评分</span>
-                        {{ search_form.min_rating }}
-                    </div>
-                </div>
-
-                <div class="col-md-3 mb-3">
-                    <div class="form-check ms-2">
-                        <label class="form-check-label">
-                            {{ search_form.is_completed }}
-                            只显示已完结
-                        </label>
-                    </div>
-                </div>
-
-                <div class="col-md-3 mb-3">
-                    <div class="form-check ms-2">
-                        <label class="form-check-label">
-                            {{ search_form.is_featured }}
-                            只显示推荐作品
-                        </label>
-                    </div>
-                </div>
-
-                <div class="col-md-3 mb-3 text-end">
-                    <a href="{% url 'anime:anime_list' %}" class="btn btn-outline-secondary">
-                        <i class="fas fa-redo-alt me-2"></i>重置筛选
-                    </a>
+            <div class="col-md-3 mb-3">
+                <div class="form-check ms-2">
+                    <input class="form-check-input" type="checkbox" name="is_completed"
+                           id="is_completed" {% if request.GET.is_completed %}checked{% endif %}>
+                    <label class="form-check-label" for="is_completed">
+                        只显示已完结
+                    </label>
                 </div>
             </div>
-        </form>
-    </div>
+
+            <div class="col-md-3 mb-3">
+                <div class="form-check ms-2">
+                    <input class="form-check-input" type="checkbox" name="is_featured"
+                           id="is_featured" {% if request.GET.is_featured %}checked{% endif %}>
+                    <label class="form-check-label" for="is_featured">
+                        只显示推荐作品
+                    </label>
+                </div>
+            </div>
+
+            <div class="col-md-3 mb-3 text-end">
+                <a href="{% url 'anime:anime_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-redo-alt me-2"></i>重置筛选
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
 
     <!-- 类型导航 -->
     <div class="mb-4">
@@ -294,8 +363,9 @@
                         {{ type.name }} ({{ type.anime_count }})
                     </a>
                 {% else %}
-                    <span class="type-tag" title="此类型暂无链接">
+                    <span class="type-tag" title="此类型暂无链接" style="opacity: 0.7; background-color: #6c757d;">
                         {{ type.name }} ({{ type.anime_count }})
+                        <i class="fas fa-exclamation-triangle ms-1" title="需要修复URL标识符"></i>
                     </span>
                 {% endif %}
             {% endfor %}
@@ -303,7 +373,7 @@
     </div>
 
     <!-- 动漫列表 -->
-    <div class="row">
+    <div class="row" id="animeCardContainer">
         {% if animes %}
             {% for anime in animes %}
                 <div class="col-md-4 col-sm-6 mb-4">
@@ -326,7 +396,7 @@
                             {% if anime.cover %}
                                 <img src="{{ anime.cover.url }}" alt="{{ anime.title }}" class="card-img-top">
                             {% else %}
-                                <img src="{% static 'images/default-cover.jpg' %}" alt="无图片" class="card-img-top">
+                                <img src="{% static 'images/no-image.jpg' %}" alt="无图片" class="card-img-top">
                             {% endif %}
                         </div>
 
@@ -337,9 +407,15 @@
                             {% endif %}
 
                             <div class="mb-2">
+                                {% if anime.type.slug %}
                                 <a href="{% url 'anime:anime_by_type' anime.type.slug %}" class="badge bg-primary">
                                     {{ anime.type.name }}
                                 </a>
+                                {% else %}
+                                <span class="badge bg-secondary">
+                                    {{ anime.type.name }}
+                                </span>
+                                {% endif %}
                                 <span class="badge bg-secondary">{{ anime.episodes }}集</span>
                                 <span class="badge bg-info">{{ anime.release_date|date:"Y年" }}</span>
                             </div>
@@ -363,18 +439,18 @@
         {% endif %}
     </div>
 
-    <!-- 分页控件 -->
+    <!-- 分页控件 - 量子修复版：保留所有查询参数 -->
     {% if is_paginated %}
     <nav aria-label="分页导航" class="mt-4">
         <ul class="pagination justify-content-center">
             {% if page_obj.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}page=1">
+                    <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1">
                         <i class="fas fa-angle-double-left"></i>
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                    <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">
                         <i class="fas fa-angle-left"></i>
                     </a>
                 </li>
@@ -394,19 +470,19 @@
                     </li>
                 {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
                     <li class="page-item">
-                        <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}page={{ num }}">{{ num }}</a>
+                        <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ num }}">{{ num }}</a>
                     </li>
                 {% endif %}
             {% endfor %}
 
             {% if page_obj.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}page={{ page_obj.next_page_number }}">
+                    <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">
                         <i class="fas fa-angle-right"></i>
                     </a>
                 </li>
                 <li class="page-item">
-                    <a class="page-link" href="?{% if request.GET.query %}query={{ request.GET.query }}&{% endif %}page={{ page_obj.paginator.num_pages }}">
+                    <a class="page-link" href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}">
                         <i class="fas fa-angle-double-right"></i>
                     </a>
                 </li>
@@ -431,6 +507,11 @@
         <a href="{% url 'anime:anime_type_list' %}" class="btn btn-info ms-2">
             <i class="fas fa-tags me-2"></i>管理动漫类型
         </a>
+        {% if perms.anime.change_animetype and slug_missing_count > 0 %}
+        <a href="{% url 'anime:anime_type_list' %}" class="btn btn-warning ms-2">
+            <i class="fas fa-wrench me-2"></i>修复URL标识符 ({{ slug_missing_count }})
+        </a>
+        {% endif %}
     </div>
     {% endif %}
 </div>
@@ -438,7 +519,29 @@
 
 {% block extra_js %}
 <script>
-$(document).ready(function() {
+document.addEventListener('DOMContentLoaded', function() {
+    // 量子检测资源可用性
+    function checkResourceAvailability(url, fallbackUrl) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(url);
+            img.onerror = () => resolve(fallbackUrl);
+            img.src = url;
+        });
+    }
+
+    // 资源量子稳定性检查
+    checkResourceAvailability('/static/images/no-image.jpg', '/static/images/default-cover.jpg')
+        .then(stableImagePath => {
+            // 检查页面上所有显示"无图片"的图像，确保它们使用正确的路径
+            document.querySelectorAll('.card-img-top[alt="无图片"]').forEach(img => {
+                if (img.src !== stableImagePath) {
+                    console.log('量子资源稳定化：修复图像路径', img.src, '=>', stableImagePath);
+                    img.src = stableImagePath;
+                }
+            });
+        });
+
     // 实时搜索功能
     var searchTimeout;
     var searchResults = $('#searchResults');
@@ -519,10 +622,21 @@ $(document).ready(function() {
                         searchResults.show();
                     }
                 },
-                error: function() {
+                error: function(xhr, status, error) {
                     // 移除加载指示器并显示错误
                     $('.search-loading').remove();
-                    searchResults.empty().append('<div class="search-no-results">搜索出错，请稍后再试</div>').show();
+                    searchResults.empty().append(`<div class="search-error">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        搜索异常: ${status || '请求失败'}
+                        ${xhr.status ? `(${xhr.status})` : ''}
+                    </div>`).show();
+
+                    // 控制台输出详细量子纠缠异常
+                    console.error('搜索量子异常:', {
+                        status: xhr.status,
+                        error: error,
+                        response: xhr.responseText
+                    });
                 }
             });
         }, 300);  // 300ms延迟
@@ -587,22 +701,78 @@ $(document).ready(function() {
         $('#searchForm').submit();
     });
 
-    // 卡片等高处理
+    // 量子增强版卡片高度自适应调整
     function adjustCardHeights() {
-        const cards = document.querySelectorAll('.anime-card');
-        let maxHeight = 0;
+        // 创建量子延迟隧道确保DOM完全渲染
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                const cards = document.querySelectorAll('.anime-card');
+                if (cards.length === 0) return;
 
-        // 先重置高度
-        cards.forEach(card => {
-            card.style.height = 'auto';
-            const height = card.offsetHeight;
-            maxHeight = Math.max(maxHeight, height);
+                let maxHeight = 0;
+
+                // 第一阶段：重置高度并找出最大值
+                cards.forEach(card => {
+                    card.style.height = 'auto';
+                    // 强制浏览器重新计算布局
+                    void card.offsetHeight;
+                    const height = card.offsetHeight;
+                    maxHeight = Math.max(maxHeight, height);
+                });
+
+                // 第二阶段：应用统一高度
+                requestAnimationFrame(() => {
+                    cards.forEach(card => {
+                        card.style.height = `${maxHeight}px`;
+                        // 添加平滑过渡
+                        card.style.transition = 'height 0.2s ease-out';
+                    });
+
+                    // 记录量子态稳定后的高度
+                    console.debug(`量子卡片稳定化: 统一高度 ${maxHeight}px`);
+                });
+            }, 50); // 微量子延迟
+        });
+    }
+
+    // 监听图像加载完成事件
+    const animeCardContainer = document.getElementById('animeCardContainer');
+    if (animeCardContainer) {
+        // 计数器跟踪图像加载状态
+        let imageLoadTracker = {
+            total: animeCardContainer.querySelectorAll('img').length,
+            loaded: 0
+        };
+
+        // 为每个图像添加加载事件
+        animeCardContainer.querySelectorAll('img').forEach(img => {
+            // 已经加载完成的图像
+            if (img.complete && img.naturalHeight !== 0) {
+                imageLoadTracker.loaded++;
+            } else {
+                img.addEventListener('load', () => {
+                    imageLoadTracker.loaded++;
+                    // 当所有图像加载完成后调整卡片高度
+                    if (imageLoadTracker.loaded >= imageLoadTracker.total) {
+                        adjustCardHeights();
+                    }
+                });
+
+                // 图像加载失败时仍然计数
+                img.addEventListener('error', () => {
+                    console.warn('图像加载失败:', img.src);
+                    imageLoadTracker.loaded++;
+                    if (imageLoadTracker.loaded >= imageLoadTracker.total) {
+                        adjustCardHeights();
+                    }
+                });
+            }
         });
 
-        // 设置所有卡片为相同高度
-        cards.forEach(card => {
-            card.style.height = `${maxHeight}px`;
-        });
+        // 如果所有图像已缓存，直接调整
+        if (imageLoadTracker.loaded >= imageLoadTracker.total) {
+            adjustCardHeights();
+        }
     }
 
     // 初始调整和窗口大小改变时调整

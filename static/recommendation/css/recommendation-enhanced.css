@@ -196,6 +196,140 @@
   transform: scale(1.1);
 }
 
+/* 量子分页器样式 */
+.pagination-container {
+  margin: 2rem 0;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 15px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.pagination-container:hover {
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.pagination {
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.pagination .page-item .page-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 45px;
+  height: 45px;
+  margin: 0 3px;
+  padding: 0;
+  font-size: 1rem;
+  border-radius: 10px;
+  border: none;
+  background: white;
+  color: #1a202c;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.pagination .page-item .page-link:hover {
+  transform: translateY(-2px);
+  background: #f8f9fa;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  color: #7952b3;
+}
+
+.pagination .page-item.active .page-link {
+  background: linear-gradient(45deg, #6d28d9, #8b5cf6);
+  color: white;
+  box-shadow: 0 5px 15px rgba(109, 40, 217, 0.3);
+}
+
+.pagination .page-item.disabled .page-link {
+  background: #f8f9fa;
+  color: #adb5bd;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.pagination-info {
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin-top: 0.5rem;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .pagination .page-item .page-link {
+    width: 40px;
+    height: 40px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .pagination .page-item .page-link {
+    width: 35px;
+    height: 35px;
+    font-size: 0.8rem;
+    margin: 0 2px;
+  }
+
+  /* 在移动端隐藏省略页码 */
+  .pagination .page-item.disabled:not(:first-child):not(:last-child) {
+    display: none;
+  }
+}
+
+/* 量子加载动画增强 */
+.quantum-spinner {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto;
+  border: 3px solid transparent;
+  border-top-color: #6d28d9;
+  border-radius: 50%;
+  animation: quantum-spin 1s linear infinite;
+  position: relative;
+}
+
+.quantum-spinner:before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  right: 5px;
+  bottom: 5px;
+  border: 3px solid transparent;
+  border-top-color: #10b981;
+  border-radius: 50%;
+  animation: quantum-spin 2s linear infinite;
+}
+
+.quantum-spinner:after {
+  content: "";
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  right: 15px;
+  bottom: 15px;
+  border: 3px solid transparent;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: quantum-spin 1.5s linear infinite;
+}
+
+@keyframes quantum-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 /* 星级评分增强 */
 .rating-stars {
   color: #ffc107;

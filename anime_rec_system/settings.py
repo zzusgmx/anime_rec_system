@@ -1,6 +1,5 @@
 # anime_rec_system/settings.py
-# settings.py 顶部
-
+# 高能预警：量子级配置矩阵入口点
 
 import os
 from pathlib import Path
@@ -20,7 +19,6 @@ TESTING = ENV == 'testing'
 
 # 条件配置
 DEBUG = not PRODUCTION  # 生产环境自动关闭DEBUG
-
 
 # 构建根目录路径量子坐标
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -336,4 +334,3 @@ LOGGING = {
 
 # 确保日志目录存在
 os.makedirs(os.path.join(BASE_DIR, 'logs'), exist_ok=True)
-

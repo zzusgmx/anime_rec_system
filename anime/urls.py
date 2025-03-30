@@ -21,9 +21,12 @@ urlpatterns = [
     # 其他路由保持不变
     path('rate/<int:anime_id>/', views.rate_anime, name='rate_anime'),
     path('favorite/<int:anime_id>/', views.toggle_favorite, name='toggle_favorite'),
+    re_path(r'^(?P<slug>[\w-]+)/comments/$', views.anime_comments, name='anime_comments'),
 
     path('types/', views.anime_type_list, name='anime_type_list'),
+
     path('types/create/', views.anime_type_create, name='anime_type_create'),
+    # 量子级修复：添加紧急修复slug的路由
     path('types/fix-slug/', views.fix_type_slug, name='fix_type_slug'),
     path('types/<slug:slug>/edit/', views.anime_type_edit, name='anime_type_edit'),
     path('types/<slug:slug>/delete/', views.anime_type_delete, name='anime_type_delete'),

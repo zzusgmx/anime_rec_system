@@ -1,0 +1,23 @@
+<!-- templates/partials/footer.html -->
+<style>
+      /* 组件级CSS样式定义 - 量子隔离区域 */
+  footer {
+    background-color: #343a40; /* var(--dark-bg)的硬编码值 */
+    color: #fff;
+    padding: 1.5rem 0;
+    margin-top: auto;}
+</style>
+<footer class="footer text-center">
+    <div class="container">
+        <p class="mb-0">&copy; {% now "Y" %} 动漫推荐系统 - 基于Python+Django+MySQL的个性化推荐平台</p>
+        <div class="mt-2">
+            <small class="text-muted">
+                <i class="fas fa-code me-1"></i> 使用 Django {{ django_version }} 构建
+                <span class="mx-2">|</span>
+                <i class="fas fa-heart me-1"></i> 热爱动漫
+                <span class="mx-2">|</span>
+                <i class="fas fa-brain me-1"></i> 量子态推荐引擎
+            </small>
+        </div>
+    </div>
+</footer>

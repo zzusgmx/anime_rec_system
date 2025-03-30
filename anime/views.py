@@ -124,6 +124,7 @@ def anime_list(request):
 
         return render(request, 'anime/anime_list.html', context, status=500)
 
+
 def anime_detail(request, slug):
     """
     量子态增强型动漫详情视图：支持多维度实体解析
@@ -221,18 +222,47 @@ def anime_detail(request, slug):
             logger.error(f"获取相关推荐失败: {str(e)}")
             related_animes = []
 
-        # 获取最新评论
+        # ===== 获取和分页评论 =====
         try:
             from recommendation.models import UserComment
-            recent_comments = UserComment.objects.filter(anime=anime) \
-                                  .select_related('user') \
-                                  .order_by('-timestamp')[:5]
+            from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
+            # 获取所有评论
+            all_comments = UserComment.objects.filter(anime=anime) \
+                .select_related('user', 'user__profile') \
+                .order_by('-timestamp')
+
+            # 分页处理 - 确保使用正确的参数名
+            comment_paginator = Paginator(all_comments, 5)  # 每页5条评论
+
+            # 同时检查两种可能的参数名，确保兼容性
+            comment_page = request.GET.get('comment_page', request.GET.get('page', 1))
+
+            try:
+                paginated_comments = comment_paginator.page(comment_page)
+                recent_comments = paginated_comments
+            except PageNotAnInteger:
+                paginated_comments = comment_paginator.page(1)
+                recent_comments = paginated_comments
+            except EmptyPage:
+                paginated_comments = comment_paginator.page(comment_paginator.num_pages)
+                recent_comments = paginated_comments
+
         except Exception as e:
-            logger.error(f"获取评论失败: {str(e)}")
+            logger.error(f"获取评论失败: {str(e)}\n{traceback.format_exc()}")
+            # 设置默认空值以避免模板错误
+            from django.core.paginator import Paginator
+            empty_paginator = Paginator([], 10)
+            try:
+                paginated_comments = empty_paginator.page(1)
+            except:
+                paginated_comments = None
             recent_comments = []
 
         # 检查用户是否已收藏和评分（如果已登录）
-        user_data = {}
+        # 这里是关键修复：在使用user_data前确保它被初始化
+        user_data = {'rating': 0, 'has_favorited': False}
+
         if request.user.is_authenticated:
             try:
                 from recommendation.models import UserRating, UserFavorite
@@ -250,15 +280,15 @@ def anime_detail(request, slug):
                 ).exists()
             except Exception as e:
                 logger.error(f"获取用户数据失败: {str(e)}")
-                user_data = {'rating': 0, 'has_favorited': False}
+                # 保持默认值
 
-        # ===== [核心修复] 初始化上下文对象 =====
-        # 这里是关键修复：确保context在所有执行路径上都被正确初始化
+        # 确保上下文中包含分页对象
         context = {
             'anime': anime,
             'related_animes': related_animes,
             'recent_comments': recent_comments,
             'user_data': user_data,
+            'page_obj': paginated_comments,
         }
 
         return render(request, 'anime/anime_detail.html', context)
@@ -519,75 +549,6 @@ def anime_search(request):
         results_list.append(result_item)
 
     return JsonResponse({'results': results_list})
-
-
-# anime/views.py
-def anime_comments(request, slug):
-    """
-    量子化评论分页控制器 - 支持完整分页范式
-    """
-    anime = get_object_or_404(Anime, slug=slug)
-    page = request.GET.get('page', 1)
-
-    # 引入评论模型并优化查询性能
-    from recommendation.models import UserComment, UserLike
-    from django.db.models import Prefetch
-
-    # 优化N+1查询问题 - 使用prefetch_related加载用户点赞
-    user_likes_prefetch = None
-    if request.user.is_authenticated:
-        user_likes_prefetch = Prefetch(
-            'likes',
-            queryset=UserLike.objects.filter(user=request.user),
-            to_attr='user_likes'
-        )
-
-    comments = UserComment.objects.filter(anime=anime) \
-        .select_related('user', 'user__profile') \
-        .prefetch_related(user_likes_prefetch) \
-        .order_by('-timestamp')
-
-    # 分页引擎
-    paginator = Paginator(comments, 5)  # 每页10条评论
-    try:
-        page_obj = paginator.page(page)
-    except (PageNotAnInteger, EmptyPage):
-        page_obj = paginator.page(1)
-
-    # 使用模板渲染（支持API/HTML双模式）
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        # AJAX请求返回JSON
-        from django.template.loader import render_to_string
-
-        comments_html = ""
-        for comment in page_obj:
-            user_liked = False
-            if request.user.is_authenticated and hasattr(comment, 'user_likes'):
-                user_liked = len(comment.user_likes) > 0
-
-            context = {'comment': comment, 'user': request.user, 'user_liked': user_liked}
-            rendered = render_to_string('recommendation/partials/comment.html', context)
-            comments_html += rendered
-
-        # 构建分页元数据
-        pagination_meta = {
-            'has_next': page_obj.has_next(),
-            'has_previous': page_obj.has_previous(),
-            'current_page': page_obj.number,
-            'total_pages': paginator.num_pages,
-            'total_comments': paginator.count
-        }
-
-        return JsonResponse({
-            'html': comments_html,
-            'pagination': pagination_meta
-        })
-    else:
-        # 标准请求返回完整页面
-        return render(request, 'anime/comments.html', {
-            'comments': page_obj,
-            'anime': anime
-        })
 @login_required
 @permission_required('anime.add_animetype', raise_exception=True)
 def anime_type_create(request):
@@ -846,38 +807,94 @@ def anime_find_by_id(request, anime_id):
         logger.error(f"通过ID查找动漫失败: {str(e)}")
         messages.error(request, "查找动漫时发生错误")
         return redirect('anime:anime_not_found')
-
-@require_POST
-@login_required
-@permission_required('anime.change_animetype', raise_exception=True)
-def fix_type_slug(request):
+def anime_comments(request, slug):
     """
-    AJAX端点：量子修复空slug的动漫类型记录
-    使用模型的save()方法触发slug自动生成逻辑
+    动漫评论分页视图：获取特定动漫的评论并分页
+    - 支持AJAX请求返回JSON数据
+    - 支持普通请求返回HTML片段
+    - 处理页码和分页导航
     """
     try:
-        data = json.loads(request.body)
-        type_id = data.get('id')
+        # 获取动漫对象
+        anime = get_object_or_404(Anime, slug=slug)
 
-        if not type_id:
-            return JsonResponse({'success': False, 'error': '缺少类型ID'})
+        # 获取页码参数
+        page = request.GET.get('comment_page', 1)
+        try:
+            page = int(page)
+        except ValueError:
+            page = 1
 
-        # 获取类型并触发save()方法重新生成slug
-        anime_type = get_object_or_404(AnimeType, id=type_id)
-        # 强制清空slug以触发重新生成逻辑
-        anime_type.slug = ''
-        anime_type.save()  # 增强save()方法会处理slug生成
+        # 从数据库获取评论并按时间倒序排序
+        from recommendation.models import UserComment
+        comments = UserComment.objects.filter(anime=anime) \
+            .select_related('user', 'user__profile') \
+            .order_by('-timestamp')
 
-        return JsonResponse({
-            'success': True,
-            'message': f'成功修复 "{anime_type.name}" 的URL标识符',
-            'slug': anime_type.slug
-        })
+        # 使用Django分页器处理分页
+        from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+        paginator = Paginator(comments, 5)  # 每页显示5条评论
+
+        try:
+            paginated_comments = paginator.page(page)
+        except PageNotAnInteger:
+            # 如果页码不是整数，返回第一页
+            paginated_comments = paginator.page(1)
+        except EmptyPage:
+            # 如果页码超出范围，返回最后一页
+            paginated_comments = paginator.page(paginator.num_pages)
+
+        # 检测是否是AJAX请求
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+        if is_ajax:
+            # 为AJAX请求准备HTML片段
+            from django.template.loader import render_to_string
+            html_content = ""
+
+            # 使用模板标签渲染每个评论
+            from recommendation.templatetags.interaction_tags import render_comment
+            context = {'user': request.user}
+
+            for comment in paginated_comments:
+                html_content += render_comment({'user': request.user}, comment)
+
+            # 返回JSON响应
+            return JsonResponse({
+                'html': html_content,
+                'has_next': paginated_comments.has_next(),
+                'has_previous': paginated_comments.has_previous(),
+                'current_page': paginated_comments.number,
+                'total_pages': paginator.num_pages
+            })
+        else:
+            # 为普通请求准备上下文
+            context = {
+                'anime': anime,
+                'comments': paginated_comments,
+                'page_obj': paginated_comments,
+                'is_paginated': paginator.num_pages > 1,
+            }
+
+            # 返回渲染后的模板
+            return render(request, 'anime/anime_comments.html', context)
 
     except Exception as e:
-        logger.error(f"修复slug失败: {str(e)}")
-        return JsonResponse({'success': False, 'error': str(e)})
+        # 异常处理
+        logger.error(f"获取评论失败: {str(e)}\n{traceback.format_exc()}")
 
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'error': '加载评论时发生错误',
+                'html': '<div class="alert alert-danger">加载评论失败，请稍后再试</div>',
+                'has_next': False,
+                'has_previous': False,
+                'current_page': 1,
+                'total_pages': 1
+            }, status=500)
+        else:
+            messages.error(request, '加载评论时发生错误，请稍后再试')
+            return redirect('anime:anime_detail', slug=slug)
 @require_POST
 @login_required
 @permission_required('anime.change_animetype', raise_exception=True)

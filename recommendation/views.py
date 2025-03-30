@@ -265,7 +265,7 @@ def user_activity_dashboard(request):
         user_ratings = UserRating.objects.filter(user=request.user).select_related('anime').order_by('-timestamp')[:10]
 
         # 获取用户评论数据 - 修改为仅获取5条记录
-        user_comments = UserComment.objects.filter(user=request.user).select_related('anime').order_by('-timestamp')[:3]
+        user_comments = UserComment.objects.filter(user=request.user).select_related('anime').order_by('-timestamp')[:10]
 
         # 转换为JSON格式，用于前端渲染
         ratings_data = []
@@ -987,7 +987,7 @@ def dashboard_comments_api(request):
     """
     try:
         # 获取用户评论
-        user_comments = UserComment.objects.filter(user=request.user).select_related('anime').order_by('-timestamp')[:3]
+        user_comments = UserComment.objects.filter(user=request.user).select_related('anime').order_by('-timestamp')[:10]
 
         # 构建响应数据
         comments = []

@@ -1,31 +1,118 @@
 # recommendation/views.py
-from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
-from django.core.paginator import Paginator
-from django.db import transaction
-from django.utils import timezone
 from django.contrib import messages
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-import logging
 import os
-import traceback
+from django.shortcuts import render, get_object_or_404, redirect
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST, require_http_methods
 import json
-
+import logging
+import traceback
 from anime.models import Anime
 from .models import RecommendationCache, UserRating, UserComment, UserLike, UserFavorite
 from users.models import UserBrowsing
+from django.utils import timezone
+from datetime import timedelta
 from .engine.recommendation_engine import recommendation_engine
-
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 # 配置日志记录器
 logger = logging.getLogger('django')
 
 # ========================= 页面视图函数 =========================
+@login_required
+@require_POST
+def toggle_anime_like(request, anime_id):
+    """
+    动漫点赞切换API
+    处理用户对动漫的点赞/取消点赞操作
+    """
+    try:
+        anime = get_object_or_404(Anime, id=anime_id)
+        from recommendation.models import AnimeLike
+        # 检查是否已点赞
+        like, created = AnimeLike.objects.get_or_create(
+            user=request.user,
+            anime=anime
+        )
 
+        if not created:
+            # 已点赞，取消点赞
+            like.delete()
+            action = 'removed'
+            message = '已取消点赞'
+        else:
+            # 新增点赞
+            action = 'added'
+            message = '点赞成功'
+        from recommendation.models import AnimeLike
+        # 获取最新点赞数
+        like_count = AnimeLike.objects.filter(anime=anime).count()
+
+        return JsonResponse({
+            'success': True,
+            'action': action,
+            'message': message,
+            'like_count': like_count
+        })
+    except Exception as e:
+        logger.error(f"动漫点赞操作失败: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': '操作失败，请稍后再试'
+        }, status=500)
+@login_required
+@require_POST
+def toggle_like_comment(request, comment_id):
+    """
+    评论点赞切换API
+    处理用户对评论的点赞/取消点赞操作
+    """
+    try:
+        comment = get_object_or_404(UserComment, id=comment_id)
+
+        # 检查用户是否已点赞
+        like, created = UserLike.objects.get_or_create(
+            user=request.user,
+            comment=comment
+        )
+
+        if not created:
+            # 已点赞，取消点赞
+            like.delete()
+
+            # 减少评论点赞计数
+            if comment.like_count > 0:
+                comment.like_count -= 1
+                comment.save(update_fields=['like_count'])
+
+            return JsonResponse({
+                'success': True,
+                'action': 'removed',
+                'like_count': comment.like_count,
+                'message': '已取消点赞'
+            })
+        else:
+            # 新增点赞
+            comment.like_count += 1
+            comment.save(update_fields=['like_count'])
+
+            return JsonResponse({
+                'success': True,
+                'action': 'added',
+                'like_count': comment.like_count,
+                'message': '点赞成功'
+            })
+    except Exception as e:
+        logger.error(f"评论点赞操作失败: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': '操作失败，请稍后再试'
+        }, status=500)
 @login_required
 @require_GET
 def get_recommendations(request):
@@ -252,20 +339,144 @@ def user_comments(request):
         logger.error(f"评论页面加载失败: {str(e)}\n{traceback.format_exc()}")
         messages.error(request, "加载评论列表时出错，请稍后再试")
         return redirect('anime:anime_list')
+# recommendation/views.py 中修改以下视图函数
+
+@login_required
+def dashboard_likes_api(request):
+    """
+    仪表板点赞API
+    返回用户的动漫点赞记录
+    """
+    try:
+        user = request.user
+        from recommendation.models import AnimeLike
+        # 获取用户最近的动漫点赞记录
+        likes = AnimeLike.objects.filter(user=user).select_related('anime').order_by('-timestamp')[:5]
+
+        # 构建返回数据
+        result = []
+        for like in likes:
+            result.append({
+                'id': like.id,
+                'animeId': like.anime.id,
+                'animeSlug': like.anime.slug,
+                'animeTitle': like.anime.title,
+                'date': like.timestamp.strftime('%Y-%m-%d %H:%M'),
+                'coverUrl': request.build_absolute_uri(like.anime.cover.url) if like.anime.cover else None
+            })
+
+        return JsonResponse({
+            'success': True,
+            'likes': result
+        })
+    except Exception as e:
+        logger.error(f"获取点赞记录失败: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'获取点赞记录失败: {str(e)}'
+        }, status=500)
+@login_required
+def user_likes(request):
+    """
+    用户点赞记录页面
+    显示用户点赞过的所有动漫
+    """
+    try:
+        from recommendation.models import AnimeLike
+        user = request.user
+        likes_list = AnimeLike.objects.filter(user=user).select_related('anime').order_by('-timestamp')
+
+        # 分页
+        paginator = Paginator(likes_list, 12)  # 每页12条记录
+        page = request.GET.get('page')
+
+        try:
+            page_obj = paginator.page(page)
+        except PageNotAnInteger:
+            page_obj = paginator.page(1)
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages)
+
+        context = {
+            'likes': page_obj,
+            'page_obj': page_obj,
+            'is_paginated': paginator.num_pages > 1,
+            'active_tab': 'likes'  # 用于导航栏高亮
+        }
+
+        return render(request, 'recommendation/user_likes.html', context)
+    except Exception as e:
+        logger.error(f"点赞页面加载失败: {str(e)}\n{traceback.format_exc()}")
+        messages.error(request, "加载点赞列表时出错，请稍后再试")
+        return redirect('anime:anime_list')
+@login_required
+def visualization_likes_analysis(request):
+    """
+    点赞分析可视化API
+    分析用户点赞活动与其他活动的关系
+    """
+    try:
+        user = request.user
+        from recommendation.models import AnimeLike
+        # 获取用户的动漫点赞数
+        anime_like_count = AnimeLike.objects.filter(user=user).count()
+
+        # 获取用户的评论点赞数
+        comment_like_count = UserLike.objects.filter(user=user).count()
+
+        # 获取用户的评分数和收藏数
+        rating_count = UserRating.objects.filter(user=user).count()
+        favorite_count = UserFavorite.objects.filter(user=user).count()
+
+        # 构建数据
+        data = [
+            {
+                'name': '动漫点赞',
+                'value': anime_like_count,
+                'color': '#ef4444'  # 红色
+            },
+            {
+                'name': '评论点赞',
+                'value': comment_like_count,
+                'color': '#f97316'  # 橙色
+            },
+            {
+                'name': '评分',
+                'value': rating_count,
+                'color': '#10b981'  # 绿色
+            },
+            {
+                'name': '收藏',
+                'value': favorite_count,
+                'color': '#2563eb'  # 蓝色
+            }
+        ]
+
+        return JsonResponse({
+            'success': True,
+            'data': data
+        })
+    except Exception as e:
+        logger.error(f"点赞分析数据API错误: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'获取点赞分析数据失败: {str(e)}'
+        }, status=500)
 
 
 @login_required
 def user_activity_dashboard(request):
     """
     用户活动仪表板
-    展示用户的评分、评论和推荐历史
+    展示用户的评分、评论、点赞和推荐历史
     """
     try:
         # 获取用户评分数据
         user_ratings = UserRating.objects.filter(user=request.user).select_related('anime').order_by('-timestamp')[:10]
 
-        # 获取用户评论数据 - 修改为仅获取5条记录
-        user_comments = UserComment.objects.filter(user=request.user).select_related('anime').order_by('-timestamp')[:3]
+        # 获取用户评论数据
+        user_comments = UserComment.objects.filter(user=request.user).select_related('anime').order_by('-timestamp')[
+                        :10]
 
         # 转换为JSON格式，用于前端渲染
         ratings_data = []
@@ -273,7 +484,7 @@ def user_activity_dashboard(request):
             ratings_data.append({
                 'animeId': rating.anime.id,
                 'animeTitle': rating.anime.title,
-                'animeSlug': rating.anime.slug,  # 添加slug字段
+                'animeSlug': rating.anime.slug,
                 'rating': float(rating.rating),
                 'date': rating.timestamp.strftime('%Y-%m-%d')
             })
@@ -283,12 +494,35 @@ def user_activity_dashboard(request):
             comments_data.append({
                 'animeId': comment.anime.id,
                 'animeTitle': comment.anime.title,
-                'animeSlug': comment.anime.slug,  # 添加slug以便构建正确的URL
+                'animeSlug': comment.anime.slug,
                 'content': comment.content,
                 'date': comment.timestamp.strftime('%Y-%m-%d %H:%M'),
                 'like_count': comment.like_count,
-                'commentId': comment.id  # 添加评论ID用于定位到特定评论
+                'commentId': comment.id
             })
+
+        # 获取用户动漫点赞数据
+        from recommendation.models import AnimeLike
+        likes_data = []
+
+        try:
+            # 使用更明确的错误处理
+            user_likes = AnimeLike.objects.filter(user=request.user).select_related('anime').order_by('-timestamp')[:5]
+
+            for like in user_likes:
+                likes_data.append({
+                    'id': like.id,
+                    'animeId': like.anime.id,
+                    'animeSlug': like.anime.slug,
+                    'animeTitle': like.anime.title,
+                    'date': like.timestamp.strftime('%Y-%m-%d %H:%M'),
+                    'coverUrl': request.build_absolute_uri(like.anime.cover.url) if like.anime.cover else None
+                })
+        except Exception as like_error:
+            # 记录点赞数据获取失败，但不中断整个仪表盘
+            logger.error(f"获取用户点赞数据失败: {str(like_error)}\n{traceback.format_exc()}")
+            # 设置空的点赞数据
+            likes_data = []
 
         # 获取默认推荐
         try:
@@ -311,9 +545,10 @@ def user_activity_dashboard(request):
         context = {
             'user_ratings': json.dumps(ratings_data),
             'user_comments': json.dumps(comments_data),
+            'user_likes': json.dumps(likes_data),
             'recommendations': sorted_recommendations,
             'strategies': get_strategy_list(),
-            'active_tab': 'dashboard'  # 添加active_tab
+            'active_tab': 'dashboard'
         }
 
         return render(request, 'recommendation/user_dashboard.html', context)
@@ -321,8 +556,6 @@ def user_activity_dashboard(request):
         logger.error(f"仪表板加载失败: {str(e)}\n{traceback.format_exc()}")
         messages.error(request, "加载仪表板数据时出错，请稍后再试")
         return redirect('anime:anime_list')
-
-
 # 对RecommendationAPIView进行增强，支持分页信息返回
 
 class RecommendationAPIView(APIView):
@@ -800,56 +1033,6 @@ def delete_comment(request, comment_id):
             'error': '删除评论失败，请稍后再试'
         }, status=500)
 
-
-@login_required
-@require_http_methods(["POST"])
-def toggle_like_comment(request, comment_id):
-    """
-    点赞/取消点赞评论API
-    """
-    try:
-        comment = get_object_or_404(UserComment, id=comment_id)
-
-        # 检查用户是否已点赞
-        like, created = UserLike.objects.get_or_create(
-            user=request.user,
-            comment=comment
-        )
-
-        if not created:
-            # 已点赞，取消点赞
-            like.delete()
-
-            # 减少评论点赞计数
-            if comment.like_count > 0:
-                comment.like_count -= 1
-                comment.save(update_fields=['like_count'])
-
-            return JsonResponse({
-                'success': True,
-                'action': 'removed',
-                'like_count': comment.like_count,
-                'message': '已取消点赞'
-            })
-        else:
-            # 新增点赞
-            comment.like_count += 1
-            comment.save(update_fields=['like_count'])
-
-            return JsonResponse({
-                'success': True,
-                'action': 'added',
-                'like_count': comment.like_count,
-                'message': '点赞成功'
-            })
-    except Exception as e:
-        logger.error(f"点赞操作失败: {str(e)}")
-        return JsonResponse({
-            'success': False,
-            'error': '操作失败，请稍后再试'
-        }, status=500)
-
-
 @login_required
 @require_POST
 def heart_rating(request, anime_id):
@@ -987,7 +1170,7 @@ def dashboard_comments_api(request):
     """
     try:
         # 获取用户评论
-        user_comments = UserComment.objects.filter(user=request.user).select_related('anime').order_by('-timestamp')[:3]
+        user_comments = UserComment.objects.filter(user=request.user).select_related('anime').order_by('-timestamp')[:10]
 
         # 构建响应数据
         comments = []
@@ -1030,18 +1213,51 @@ from django.db.models.functions import TruncDate, Coalesce
 from django.utils import timezone
 from datetime import timedelta
 import random
+@login_required
+def user_likes(request):
+    """
+    用户点赞记录视图：展示用户所有点赞过的动漫
+    - 按时间倒序排列
+    - 支持分页
+    """
+    try:
+        from recommendation.models import AnimeLike
+        user = request.user
+        likes_list = AnimeLike.objects.filter(user=user).select_related('anime').order_by('-timestamp')
 
+        # 分页
+        paginator = Paginator(likes_list, 12)  # 每页12条记录
+        page = request.GET.get('page')
 
-# ========================= 数据可视化 API 端点 =========================
+        try:
+            page_obj = paginator.page(page)
+        except PageNotAnInteger:
+            page_obj = paginator.page(1)
+        except EmptyPage:
+            page_obj = paginator.page(paginator.num_pages)
+
+        context = {
+            'likes': page_obj,
+            'page_obj': page_obj,
+            'is_paginated': paginator.num_pages > 1,
+            'active_tab': 'likes'  # 用于导航栏高亮
+        }
+
+        return render(request, 'recommendation/user_likes.html', context)
+    except Exception as e:
+        logger.error(f"点赞页面加载失败: {str(e)}\n{traceback.format_exc()}")
+        messages.error(request, "加载点赞列表时出错，请稍后再试")
+        return redirect('anime:anime_list')
+
 
 @login_required
 def visualization_user_activity(request):
     """
-    用户活动分析API
-    返回用户在系统中的活动分布数据（浏览、评分、评论、收藏）
+    用户活动分析API - 包含点赞数据
     """
     try:
         user = request.user
+        from recommendation.models import AnimeLike
 
         # 获取用户的浏览记录数
         browsing_count = UserBrowsing.objects.filter(user=user).count()
@@ -1054,6 +1270,9 @@ def visualization_user_activity(request):
 
         # 获取用户的收藏记录数
         favorite_count = UserFavorite.objects.filter(user=user).count()
+
+        # 获取用户的动漫点赞记录数
+        like_count = AnimeLike.objects.filter(user=user).count()
 
         # 构建数据
         data = [
@@ -1068,14 +1287,19 @@ def visualization_user_activity(request):
                 'color': '#10b981'  # 绿色
             },
             {
+                'name': '收藏记录',
+                'value': favorite_count,
+                'color': '#2563eb'  # 蓝色
+            },
+            {
                 'name': '评论记录',
                 'value': comment_count,
                 'color': '#f97316'  # 橙色
             },
             {
-                'name': '收藏记录',
-                'value': favorite_count,
-                'color': '#2563eb'  # 蓝色
+                'name': '点赞记录',
+                'value': like_count,
+                'color': '#ef4444'  # 红色
             }
         ]
 
@@ -1089,8 +1313,6 @@ def visualization_user_activity(request):
             'success': False,
             'error': f'获取活动数据失败: {str(e)}'
         }, status=500)
-
-
 @login_required
 def visualization_genre_preference(request):
     """

@@ -4,7 +4,8 @@ from django.db.models import Avg, Count
 from .models import UserRating, UserComment, UserLike, UserFavorite
 from users.models import UserPreference, Profile
 from anime.models import Anime
-
+from django.utils import timezone
+from .models import AnimeLike
 
 # =============== 评分信号处理 ===============
 
@@ -93,6 +94,33 @@ def handle_comment_deletion(sender, instance, **kwargs):
 
 
 # =============== 点赞信号处理 ===============
+# 添加到 recommendation/signals.py
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from .models import AnimeLike
+@receiver(post_save, sender=AnimeLike)
+def handle_anime_like_creation(sender, instance, created, **kwargs):
+    """处理动漫点赞创建事件"""
+    if created:
+        # 更新动漫点赞计数
+        anime = instance.anime
+        like_count = AnimeLike.objects.filter(anime=anime).count()
+        anime.like_count = like_count
+        anime.save(update_fields=['like_count'])
+
+        # 更新用户偏好 (对点赞动漫的偏好)
+        update_user_preference(instance.user, anime)
+@receiver(post_delete, sender=AnimeLike)
+def handle_anime_like_deletion(sender, instance, **kwargs):
+    """处理动漫点赞删除事件"""
+    # 更新动漫点赞计数
+    anime = instance.anime
+    like_count = AnimeLike.objects.filter(anime=anime).count()
+    anime.like_count = like_count
+    anime.save(update_fields=['like_count'])
+
+    # 更新用户偏好
+    update_user_preference(instance.user, anime)
 
 @receiver(post_save, sender=UserLike)
 def handle_like_creation(sender, instance, created, **kwargs):
@@ -151,9 +179,7 @@ def handle_favorite_deletion(sender, instance, **kwargs):
 
 
 # =============== 辅助函数 ===============
-
 def update_user_preference(user, anime):
-    #from users.models import UserBrowsing, UserPreference
     """
     计算并更新用户对特定动漫的偏好值
     综合考虑评分、评论、收藏、点赞等行为
@@ -173,32 +199,26 @@ def update_user_preference(user, anime):
     has_favorite = UserFavorite.objects.filter(user=user, anime=anime).exists()
     favorite_weight = 20 if has_favorite else 0
 
-    # 浏览权重10%（需要从users应用导入）
+    # 浏览权重10%
     try:
         from users.models import UserBrowsing
-    except ImportError:
-        # 创建一个模拟对象，防止系统崩溃
-        class UserBrowsing:
-            objects = None
-
-            @classmethod
-            def filter(cls, *args, **kwargs):
-                return []
-
-    try:
         browsing = UserBrowsing.objects.get(user=user, anime=anime)
         browse_count = browsing.browse_count
         browse_weight = min(10, browse_count)  # 最多10%
-    except UserBrowsing.DoesNotExist:
+    except:
         browse_weight = 0
 
-    # 点赞权重10% - 需要计算用户对该动漫相关评论的点赞数
+    # 动漫点赞权重10%
+    has_anime_like = AnimeLike.objects.filter(user=user, anime=anime).exists()
+    anime_like_weight = 10 if has_anime_like else 0
+
+    # 评论点赞权重5%
     anime_comments = UserComment.objects.filter(anime=anime)
     like_count = UserLike.objects.filter(user=user, comment__in=anime_comments).count()
-    like_weight = min(10, like_count * 2)  # 最多10%
+    like_weight = min(5, like_count * 1)  # 最多5%
 
     # 计算总偏好值 (0-100)
-    preference_value = rating_weight + comment_weight + favorite_weight + browse_weight + like_weight
+    preference_value = rating_weight + comment_weight + favorite_weight + browse_weight + anime_like_weight + like_weight
 
     # 更新或创建偏好记录
     UserPreference.objects.update_or_create(

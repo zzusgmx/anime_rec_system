@@ -23,6 +23,7 @@ urlpatterns = [
     path('favorite/<int:anime_id>/', views.toggle_favorite, name='toggle_favorite'),
     re_path(r'^(?P<slug>[\w-]+)/comments/$', views.anime_comments, name='anime_comments'),
 
+    path('like/<int:anime_id>/', views.toggle_like, name='toggle_like'),
     path('types/', views.anime_type_list, name='anime_type_list'),
 
     path('types/create/', views.anime_type_create, name='anime_type_create'),

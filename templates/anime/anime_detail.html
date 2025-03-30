@@ -188,7 +188,12 @@
                         <i class="{% if user_data.has_favorited %}fas{% else %}far{% endif %} fa-heart me-2 favorite-icon"></i>
                         {% if user_data.has_favorited %}已收藏{% else %}收藏{% endif %}
                     </button>
-
+                    <!-- 点赞按钮 -->
+                    <button id="likeButton" class="btn btn-outline-primary like-btn {% if user_data.has_liked %}active{% endif %}">
+                        <i class="{% if user_data.has_liked %}fas{% else %}far{% endif %} fa-thumbs-up me-2 like-icon"></i>
+                        {% if user_data.has_liked %}已点赞{% else %}点赞{% endif %}
+                        <span class="like-count ms-1">{{ anime.like_count|default:"0" }}</span>
+                    </button>
                     <!-- 评论按钮 -->
                     <button id="commentButton" class="btn btn-outline-secondary">
                         <i class="far fa-comment me-2"></i>评论
@@ -286,22 +291,75 @@
                     {% render_comment comment %}
                 {% endfor %}
 
-                <div class="comment-pagination mt-4">
-                    <nav aria-label="评论分页">
-                        <ul class="pagination justify-content-center" id="commentPagination">
-                            <!-- 分页按钮将通过JS动态生成 -->
-                        </ul>
-                    </nav>
-                </div>
+
             {% else %}
                 <div class="empty-state text-center py-5">
                     <i class="far fa-comment-dots fa-3x mb-3 text-muted"></i>
                     <h4>暂无评论</h4>
                     <p class="text-muted">成为第一个评论这部动漫的人吧！</p>
                 </div>
+
             {% endif %}
         </div>
     </div>
+    <!-- 评论分页导航 -->
+<!-- 评论分页导航 -->
+{% if page_obj and page_obj.paginator.num_pages > 1 %}
+<div class="comment-pagination mt-4">
+    <nav aria-label="评论分页">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?comment_page=1" aria-label="首页">
+                        <span aria-hidden="true">&laquo;&laquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?comment_page={{ page_obj.previous_page_number }}" aria-label="上一页">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">&laquo;&laquo;</span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">&laquo;</span>
+                </li>
+            {% endif %}
+
+            {% for i in page_obj.paginator.page_range %}
+                {% if page_obj.number == i %}
+                    <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+                {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                    <li class="page-item"><a class="page-link" href="?comment_page={{ i }}">{{ i }}</a></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?comment_page={{ page_obj.next_page_number }}" aria-label="下一页">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?comment_page={{ page_obj.paginator.num_pages }}" aria-label="末页">
+                        <span aria-hidden="true">&raquo;&raquo;</span>
+                    </a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">&raquo;</span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">&raquo;&raquo;</span>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}
+
 </div>
 
 <!-- 心形评分模态框 -->
@@ -549,171 +607,9 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast('错误', '服务器错误，请稍后再试');
         });
     });
-function loadCommentsPage(page) {
-  // 显示加载状态
-  $('#commentsList').append('<div id="tempLoader" class="text-center"><div class="spinner-border text-primary" role="status"></div></div>');
 
-  // 构造绝对URL路径 - 避免相对路径歧义
-  const url = new URL(window.location.pathname + 'comments/', window.location.origin);
-  url.searchParams.set('page', page);
 
-  // 使用Fetch API + 显式请求头
-  fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest' // Django特殊标识
-    },
-    credentials: 'same-origin' // 确保CSRF cookie被发送
-  })
-  .then(response => {
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    // 先检查内容类型
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error(`非法响应类型: ${contentType}`);
-    }
-    return response.json();
-  })
-  .then(data => {
-    $('#tempLoader').remove();
 
-    // 处理评论数据
-    updateCommentsList(data, page);
-  })
-  .catch(error => {
-    $('#tempLoader').remove();
-    console.error('💣 评论加载量子崩塌:', error);
-
-    // 高级错误诊断
-    if (error.message.includes('Unexpected token')) {
-      showToast('错误', '后端返回了意外格式 - 可能是会话过期或CSRF问题', 'error');
-    } else {
-      showToast('错误', `评论加载失败: ${error.message}`, 'error');
-    }
-  });
-}
-
-// 独立函数处理DOM更新
-function updateCommentsList(data, page) {
-  const $commentsList = $('#commentsList');
-
-  // 安全移除原有评论
-  $commentsList.find('.comment-item, .empty-state').remove();
-
-  if (data.html && data.html.trim()) {
-    $commentsList.prepend(data.html);
-  } else {
-    $commentsList.html(`
-      <div class="empty-state text-center py-5">
-        <i class="far fa-comment-dots fa-3x mb-3 text-muted"></i>
-        <h4>暂无评论</h4>
-        <p class="text-muted">成为第一个评论这部动漫的人吧！</p>
-      </div>
-    `);
-  }
-
-  // 更新分页组件
-  if (data.pagination && data.pagination.total_pages > 1) {
-    updatePagination(page, data.pagination.has_next, data.pagination.total_pages);
-  } else {
-    $('#commentPagination').closest('.comment-pagination').remove();
-  }
-}
-
-function updatePagination(currentPage, hasNext, totalPages) {
-    // 检查分页容器是否存在，不存在则创建
-    if ($('#commentPagination').length === 0) {
-        $('#commentsList').append(`
-            <div class="comment-pagination mt-4">
-                <nav aria-label="评论分页">
-                    <ul class="pagination justify-content-center" id="commentPagination"></ul>
-                </nav>
-            </div>
-        `);
-    }
-
-    currentPage = parseInt(currentPage);
-    const $pagination = $('#commentPagination');
-    $pagination.empty();
-
-    // 添加上一页按钮
-    if (currentPage > 1) {
-        $pagination.append(`
-            <li class="page-item">
-                <a class="page-link" href="#" data-page="${currentPage-1}" aria-label="上一页">
-                    <span aria-hidden="true">&laquo;</span>
-                </a>
-            </li>
-        `);
-    } else {
-        $pagination.append(`
-            <li class="page-item disabled">
-                <span class="page-link"><span aria-hidden="true">&laquo;</span></span>
-            </li>
-        `);
-    }
-
-    // 量子优化：智能页码显示算法
-    const showPages = totalPages ? Math.min(totalPages, 5) : 5;
-    let startPage = Math.max(1, currentPage - Math.floor(showPages / 2));
-    let endPage = Math.min(startPage + showPages - 1, totalPages || Number.MAX_SAFE_INTEGER);
-
-    // 边界修正
-    if (endPage - startPage + 1 < showPages) {
-        startPage = Math.max(1, endPage - showPages + 1);
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-        $pagination.append(`
-            <li class="page-item ${i === currentPage ? 'active' : ''}">
-                <a class="page-link" href="#" data-page="${i}">${i}</a>
-            </li>
-        `);
-    }
-
-    // 添加下一页按钮
-    if (hasNext) {
-        $pagination.append(`
-            <li class="page-item">
-                <a class="page-link" href="#" data-page="${currentPage+1}" aria-label="下一页">
-                    <span aria-hidden="true">&raquo;</span>
-                </a>
-            </li>
-        `);
-    } else {
-        $pagination.append(`
-            <li class="page-item disabled">
-                <span class="page-link"><span aria-hidden="true">&raquo;</span></span>
-            </li>
-        `);
-    }
-
-    // 绑定事件处理器 - 使用事件委托模式避免内存泄漏
-    $('.page-link').off('click').on('click', function(e) {
-        e.preventDefault();
-        const pageNum = $(this).data('page');
-        loadCommentsPage(pageNum);
-
-        // 量子平滑滚动 - 引入缓动函数提升体验
-        $('html, body').animate({
-            scrollTop: $('#commentsSection').offset().top - 100
-        }, 300, 'easeOutQuad');
-    });
-}
-
-// 页面加载时初始化第一页评论
-$(document).ready(function() {
-    // 如果评论区域存在，加载第一页
-    if ($('#commentsList').length > 0) {
-        loadCommentsPage(1);
-    }
-
-    // 可选：添加缓动函数支持
-    $.easing.easeOutQuad = function (x, t, b, c, d) {
-        return -c *(t/=d)*(t-2) + b;
-    };
-});
     // 委托处理评论点赞事件
     $(document).on('click', '.comment-like-btn', function() {
         if (!isLoggedIn) {
@@ -780,6 +676,35 @@ $(document).ready(function() {
         // 隐藏编辑表单，显示内容
         $editForm.addClass('d-none');
         $commentContent.removeClass('d-none');
+        });
+        // 点赞按钮点击事件
+    $('#likeButton').click(function() {
+        if (!isLoggedIn) {
+            showLoginAlert();
+            return;
+        }
+
+        // 发送AJAX请求
+        $.ajax({
+            url: `/anime/like/${animeId}/`,
+            type: 'POST',
+            data: {
+                'csrfmiddlewaretoken': getCsrfToken()
+            },
+            success: function(response) {
+                const $btn = $('#likeButton');
+                if (response.action === 'added') {
+                    $btn.addClass('active').html(`<i class="fas fa-thumbs-up me-2 like-icon"></i>已点赞 <span class="like-count ms-1">${response.like_count}</span>`);
+                    showToast('点赞成功', response.message);
+                } else {
+                    $btn.removeClass('active').html(`<i class="far fa-thumbs-up me-2 like-icon"></i>点赞 <span class="like-count ms-1">${response.like_count}</span>`);
+                    showToast('取消点赞', response.message);
+                }
+            },
+            error: function() {
+                showToast('错误', '操作失败，请稍后再试');
+            }
+        });
     });
 
     // 委托处理评论编辑保存事件
@@ -833,6 +758,44 @@ $(document).ready(function() {
             showToast('错误', '服务器错误，请稍后再试');
         });
     });
+
+// 在document.ready中添加这段代码，替换原有的分页相关JavaScript
+$(document).ready(function() {
+    // 直接绑定到document上，确保动态添加的元素也能触发事件
+    $(document).on('click', '.pagination .page-link', function(e) {
+        // 如果链接已禁用，不做处理
+        if ($(this).parent().hasClass('disabled') || $(this).parent().hasClass('active')) {
+            e.preventDefault();
+            return false;
+        }
+
+        // 获取目标页码URL
+        const href = $(this).attr('href');
+        if (!href) return true;
+
+        // 阻止默认行为
+        e.preventDefault();
+
+        // 显示加载状态
+        $('#commentsList').html('<div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">加载评论中...</p></div>');
+
+        // 简单的页面跳转方式 - 这是最可靠的方法
+        window.location.href = href;
+
+        return false;
+    });
+
+    // 确保所有分页链接的href属性是完整的
+    $('.pagination .page-link').each(function() {
+        const href = $(this).attr('href');
+        if (href && !href.includes(window.location.pathname)) {
+            // 确保链接包含完整路径
+            $(this).attr('href', window.location.pathname + href);
+        }
+    });
+
+    console.log('分页事件绑定完成'); // 调试信息
+});
 
     // 委托处理评论删除事件
     $(document).on('click', '.delete-comment', function(e) {

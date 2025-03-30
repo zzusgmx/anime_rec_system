@@ -923,6 +923,10 @@
           <div class="stat-number">{{ user.browsing_history.count|default:"0" }}</div>
           <div class="stat-label">浏览历史</div>
         </div>
+          <div class="stat-item" data-type="likes">
+          <div class="stat-number">{{ user.anime_likes.count|default:"0" }}</div>
+          <div class="stat-label">点赞记录</div>
+        </div>
       </div>
     </div>
   </div>
@@ -1185,6 +1189,29 @@
                   </div>
                 </div>
               </div>
+
+                <div class="col-lg-6">
+                    <!-- 最近点赞 -->
+                    <div class="section-card">
+                      <h2 class="section-title">
+                        <i class="fas fa-thumbs-up"></i>
+                        <a href="{% url 'recommendation:user_likes' %}" style="text-decoration: none; color: inherit;">
+                          最近点赞
+                          <small class="ms-2 fs-6">
+                            <i class="fas fa-external-link-alt"></i>
+                          </small>
+                        </a>
+                      </h2>
+                      <div id="likesContainer">
+                        <!-- 数据加载中 -->
+                        <div class="loading-container">
+                          <div class="quantum-spinner"></div>
+                          <p class="mt-3">加载点赞记录中...</p>
+                        </div>
+                      </div>
+                    </div>
+                </div>
+
             </div>
           </div>
 
@@ -1201,17 +1228,18 @@
   <!-- 基础依赖 -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
+    <script src="/static/recommendation/js/visualization.js"></script>
   <!-- 核心架构组件 -->
   <script src="/static/recommendation/js/dashboard.js"></script>
   <script src="/static/recommendation/js/exploration-controller.js"></script>
-  <script src="/static/recommendation/js/visualization.js"></script>
+
 
   <!-- 初始数据加载 -->
   <script>
     // 初始数据注入 - 量子内存态服务
     const initialRatings = {{ user_ratings|safe }};
     const initialComments = {{ user_comments|safe }};
+    const initialLikes = {{ user_likes|safe }};  // 添加点赞数据
 
     // 路由调试开关
     window.DEBUG_ROUTER = false;
@@ -1224,6 +1252,7 @@
       browsingHistory: "{% url 'recommendation:browsing_history' %}",
       favorites: "{% url 'recommendation:favorites' %}",
       userComments: "{% url 'recommendation:user_comments' %}",
+        userLikes: "{% url 'recommendation:user_likes' %}",  // 添加点赞页面URL
 
       // 动态路由基地址 - 用于构建详情页URL
       animeDetail: "/anime/", // 确保这与URL配置一致
@@ -1254,7 +1283,11 @@
           // 设置当前按钮和面板为活动状态
           this.classList.add('active');
           document.getElementById(targetId).classList.add('active');
-
+          // 如果激活了可视化面板，则初始化可视化
+          if (targetId === 'visualizationPanel' && window.vizEngine) {
+            console.log('[QUANTUM] 初始化可视化...');
+            window.vizEngine.initializeCharts();
+          }
           // 触发窗口调整事件，让图表重新绘制
           window.dispatchEvent(new Event('resize'));
         });

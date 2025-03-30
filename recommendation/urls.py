@@ -38,7 +38,6 @@ urlpatterns = [
 
     # 心形评分系统API
     path('heart-rating/<int:anime_id>/', views.heart_rating, name='heart_rating'),
-
     # 新增 - 数据可视化API端点
     path('api/visualization/user-activity/', views.visualization_user_activity, name='visualization_user_activity'),
     path('api/visualization/genre-preference/', views.visualization_genre_preference,
@@ -50,10 +49,12 @@ urlpatterns = [
     path('api/visualization/genre-heatmap/', views.visualization_genre_heatmap, name='visualization_genre_heatmap'),
 
     path('user-ratings/', views.user_ratings, name='user_ratings'),
-
+    path('api/dashboard/likes/', views.dashboard_likes_api, name='dashboard_likes_api'),
+    path('anime/like/<int:anime_id>/', views.toggle_anime_like, name='toggle_anime_like'),
+    path('api/visualization/likes-analysis/', views.visualization_likes_analysis, name='visualization_likes_analysis'),
     # 添加到recommendation/urls.py的urlpatterns列表
     path('api/dashboard/seasonal/', views.dashboard_seasonal_api, name='dashboard_seasonal_api'),
     path('api/dashboard/similar/', views.dashboard_similar_api, name='dashboard_similar_api'),
     path('api/dashboard/classics/', views.dashboard_classics_api, name='dashboard_classics_api'),
-
+    path('user-likes/', views.user_likes, name='user_likes'),
 ]

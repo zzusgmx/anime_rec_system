@@ -99,6 +99,7 @@ class Anime(TimeStampedModel):
     rating_count = models.PositiveIntegerField(default=0, verbose_name="评分数量")
     view_count = models.PositiveIntegerField(default=0, verbose_name="浏览次数")
     favorite_count = models.PositiveIntegerField(default=0, verbose_name="收藏次数")
+    like_count = models.PositiveIntegerField(default=0, verbose_name="点赞次数") #动漫点赞
 
     # 内容标识
     is_featured = models.BooleanField(default=False, verbose_name="是否推荐")

@@ -1,7 +1,34 @@
 from django.db import models
 from django.contrib.auth.models import User
 from anime.models import TimeStampedModel, Anime
+from django.utils import timezone
 
+# recommendation/models.py 中添加或修改以下代码
+# 修改 recommendation/models.py 中的AnimeLike模型
+class AnimeLike(models.Model):
+    """
+    动漫点赞模型：记录用户对动漫的点赞
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='anime_likes')
+    anime = models.ForeignKey('anime.Anime', on_delete=models.CASCADE, related_name='anime_likes')
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    # 添加这两个字段并设置默认值，解决迁移问题
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "动漫点赞"
+        verbose_name_plural = "动漫点赞列表"
+        unique_together = ['user', 'anime']  # 确保用户对每个动漫只有一条点赞记录
+        indexes = [
+            models.Index(fields=['user', '-timestamp'], name='user_anime_like_idx'),
+            models.Index(fields=['anime'], name='anime_likes_idx'),
+        ]
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.user.username} 点赞 {self.anime.title}"
 
 class UserRating(TimeStampedModel):
     """
@@ -107,7 +134,7 @@ class UserComment(TimeStampedModel):
         # 显示评论内容的前20个字符
         preview = self.content[:20] + "..." if len(self.content) > 20 else self.content
         return f"{self.user.username}: {preview}"
-
+# Keep only one version of the UserLike model
 
 class UserLike(TimeStampedModel):
     """
@@ -139,8 +166,6 @@ class UserLike(TimeStampedModel):
 
     def __str__(self):
         return f"{self.user.username} 点赞了 {self.comment.user.username} 的评论"
-
-
 class UserFavorite(TimeStampedModel):
     """
     用户收藏：记录用户收藏的动漫

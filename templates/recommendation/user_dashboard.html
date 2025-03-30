@@ -1236,261 +1236,30 @@
 
   <!-- 仪表板标签切换控制器 -->
   <script>
-    /**
- * 标签系统控制器 - 量子隔离版 v4.2.1
- * 防止标签空间崩溃并导致引擎降级
- */
-document.addEventListener('DOMContentLoaded', function() {
-  // 获取所有标签按钮和面板
-  const tabButtons = document.querySelectorAll('.dashboard-tab');
-  const panels = document.querySelectorAll('.dashboard-panel');
+    document.addEventListener('DOMContentLoaded', function() {
+      // 获取所有标签按钮和面板
+      const tabButtons = document.querySelectorAll('.dashboard-tab');
+      const panels = document.querySelectorAll('.dashboard-panel');
 
-  // 为每个按钮添加隔离化点击事件
-  tabButtons.forEach(button => {
-    button.addEventListener('click', function() {
-      // 获取目标面板ID
-      const targetId = this.dataset.tabTarget;
+      // 为每个按钮添加点击事件
+      tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+          // 获取目标面板ID
+          const targetId = this.dataset.tabTarget;
 
-      // 移除所有活动状态
-      tabButtons.forEach(btn => btn.classList.remove('active'));
-      panels.forEach(panel => panel.classList.remove('active'));
+          // 移除所有活动状态
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          panels.forEach(panel => panel.classList.remove('active'));
 
-      // 设置当前按钮和面板为活动状态
-      this.classList.add('active');
-      document.getElementById(targetId).classList.add('active');
+          // 设置当前按钮和面板为活动状态
+          this.classList.add('active');
+          document.getElementById(targetId).classList.add('active');
 
-      // 【核心修复】安全的标签特定初始化
-      _initTabSpecificData(targetId);
-
-      // 触发窗口调整事件，让图表重新绘制
-      window.dispatchEvent(new Event('resize'));
+          // 触发窗口调整事件，让图表重新绘制
+          window.dispatchEvent(new Event('resize'));
+        });
+      });
     });
-  });
-
-  /**
-   * 标签特定数据初始化 - 高能接入点分离术
-   * 防止污染参数跨域传播
-   * @param {string} tabId - 标签ID
-   */
-  function _initTabSpecificData(tabId) {
-    // 策略性数据分离
-    switch(tabId) {
-      case 'recommendationPanel':
-        // 【量子态隔离】使用dashboardController加载推荐
-        if (window.dashboardController) {
-          // 确保使用的是支持的接口参数
-          window.dashboardController.loadRecommendations('hybrid');
-        }
-        break;
-
-      case 'activityPanel':
-        // 活动记录不依赖推荐引擎，分离数据获取通道
-        if (window.dashboardController) {
-          // 并行加载活动数据，避免交叉污染
-          window.dashboardController.loadRatings();
-          window.dashboardController.loadComments();
-        }
-        break;
-
-      case 'visualizationPanel':
-        // 数据可视化面板初始化
-        if (window.quantumVisualizationEngine) {
-          // 使用专用可视化引擎 - 物理隔离推荐引擎
-          window.quantumVisualizationEngine.initializeCharts();
-        } else if (window.dashboardController) {
-          // 兼容性处理：初始化可视化组件
-          console.log('[QUANTUM] 可视化引擎不存在，尝试兼容性初始化');
-          // 不传递seed_anime_id参数
-          _safeInitVisualization();
-        }
-        break;
-    }
-  }
-
-  /**
-   * 安全初始化可视化组件
-   * 避免无意义参数传递
-   */
-  function _safeInitVisualization() {
-    const vizContainer = document.getElementById('visualizationPanel');
-    if (!vizContainer) return;
-
-    // 逐个初始化可视化组件，确保不触发推荐引擎
-    const charts = vizContainer.querySelectorAll('.chart-container');
-    charts.forEach(chart => {
-      const chartId = chart.id;
-      const chartType = chart.dataset.chartType;
-
-      if (chartId && chartType) {
-        // 直接调用特定的API端点而非通用推荐接口
-        _loadVisualizationData(chartId, chartType);
-      }
-    });
-  }
-
-  /**
-   * 加载可视化数据
-   * 使用特定端点而非通用推荐接口
-   */
-  function _loadVisualizationData(chartId, chartType) {
-    const apiMap = {
-      'userActivityChart': '/recommendations/api/visualization/user-activity/',
-      'genrePreferenceChart': '/recommendations/api/visualization/genre-preference/',
-      'ratingDistributionChart': '/recommendations/api/visualization/rating-distribution/',
-      'viewingTrendsChart': '/recommendations/api/visualization/viewing-trends/',
-      'genreHeatmapChart': '/recommendations/api/visualization/genre-heatmap/'
-    };
-
-    const apiEndpoint = apiMap[chartId];
-    if (!apiEndpoint) return;
-
-    // 安全获取CSRF Token
-    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
-                     document.cookie.split('; ').find(row => row.startsWith('csrftoken='))?.split('=')[1] || '';
-
-    // 不携带seed_anime_id的安全请求
-    fetch(apiEndpoint, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrfToken,
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      credentials: 'same-origin'
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success && window.echarts) {
-        // 在此使用echarts渲染数据，不依赖推荐引擎
-        const chartElement = document.getElementById(chartId);
-        if (chartElement) {
-          const chart = echarts.init(chartElement);
-
-          // 根据图表类型构建不同配置
-          let option;
-          switch(chartType) {
-            case 'pie':
-              option = _buildPieChartOption(data.data);
-              break;
-            case 'bar':
-              option = _buildBarChartOption(data.data);
-              break;
-            case 'line':
-              option = _buildLineChartOption(data.data);
-              break;
-            case 'radar':
-              option = _buildRadarChartOption(data.data);
-              break;
-            case 'heatmap':
-              option = _buildHeatmapOption(data.data);
-              break;
-          }
-
-          if (option) {
-            chart.setOption(option);
-          }
-        }
-      }
-    })
-    .catch(error => console.error(`[QUANTUM-ERROR] 可视化数据加载失败: ${error.message}`));
-  }
-
-  // 图表配置构建函数
-  function _buildPieChartOption(data) {
-    return {
-      tooltip: { trigger: 'item' },
-      series: [{
-        type: 'pie',
-        radius: '65%',
-        center: ['50%', '50%'],
-        data: data,
-        emphasis: {
-          itemStyle: {
-            shadowBlur: 10,
-            shadowOffsetX: 0,
-            shadowColor: 'rgba(0, 0, 0, 0.5)'
-          }
-        }
-      }]
-    };
-  }
-
-  function _buildBarChartOption(data) {
-    return {
-      tooltip: { trigger: 'axis' },
-      xAxis: {
-        type: 'category',
-        data: data.map(item => item.name)
-      },
-      yAxis: { type: 'value' },
-      series: [{
-        data: data.map(item => item.value),
-        type: 'bar'
-      }]
-    };
-  }
-
-  function _buildLineChartOption(data) {
-    return {
-      tooltip: { trigger: 'axis' },
-      xAxis: {
-        type: 'category',
-        data: data.map(item => item.date || item.name)
-      },
-      yAxis: { type: 'value' },
-      series: [{
-        data: data.map(item => item.value || item.views),
-        type: 'line',
-        smooth: true
-      }]
-    };
-  }
-
-  function _buildRadarChartOption(data) {
-    const indicators = data.map(item => ({ name: item.name, max: 100 }));
-    return {
-      tooltip: {},
-      radar: {
-        indicator: indicators
-      },
-      series: [{
-        type: 'radar',
-        data: [{
-          value: data.map(item => item.value),
-          name: '偏好程度'
-        }]
-      }]
-    };
-  }
-
-  function _buildHeatmapOption(data) {
-    // 热力图需要复杂处理，这里是简化版
-    return {
-      tooltip: { position: 'top' },
-      grid: {
-        left: '3%',
-        right: '7%',
-        bottom: '13%',
-        containLabel: true
-      },
-      xAxis: { type: 'category', data: data.xAxis || [] },
-      yAxis: { type: 'category', data: data.yAxis || [] },
-      visualMap: {
-        min: 0,
-        max: data.max || 100,
-        calculable: true,
-        orient: 'horizontal',
-        left: 'center',
-        bottom: '5%'
-      },
-      series: [{
-        name: '类型热度',
-        type: 'heatmap',
-        data: data.values || []
-      }]
-    };
-  }
-});
   </script>
 
   <!-- 量子动画和粒子效果 -->
@@ -1553,5 +1322,6 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
   </script>
+{% include 'partials/footer.html' %}
 </body>
 </html>

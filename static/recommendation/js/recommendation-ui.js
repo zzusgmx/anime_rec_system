@@ -1,16 +1,37 @@
-// 量子态推荐UI - 完全重构版
-// 增强错误处理、用户反馈和动画效果
+// 量子态推荐UI - 分页增强版
+// 重构渲染层，支持分页控制和状态维护
 
 class RecommendationUI {
   constructor(containerId = 'recommendationContainer') {
     this.containerId = containerId;
     this.container = document.getElementById(containerId);
     this.currentStrategy = 'hybrid';
+    this.currentPage = 1;
+    this.itemsPerPage = 12;
     this.isLoading = false;
     this.retryCount = 0;
     this.maxRetries = 3;
 
-    console.log("量子态推荐UI组件初始化完成");
+    console.log("[QUANTUM-UI] 量子态UI组件初始化完成，分页控制器已激活");
+
+    // 创建分页容器（如果不存在）
+    this._ensurePaginationContainer();
+  }
+
+  /**
+   * 确保分页容器存在
+   * @private
+   */
+  _ensurePaginationContainer() {
+    if (!document.getElementById('paginationContainer')) {
+      const paginationDiv = document.createElement('div');
+      paginationDiv.id = 'paginationContainer';
+      paginationDiv.className = 'pagination-container text-center mt-4 mb-5';
+
+      // 找到内容容器的后面插入分页器
+      const containerParent = this.container.parentNode;
+      containerParent.insertBefore(paginationDiv, this.container.nextSibling);
+    }
   }
 
   /**
@@ -25,10 +46,16 @@ class RecommendationUI {
         <div class="loading-container">
           <div class="quantum-spinner"></div>
           <p class="mt-3">量子态计算中...</p>
-          <small class="text-muted">正在应用 ${this.getStrategyName(this.currentStrategy)} 算法</small>
+          <small class="text-muted">正在应用 ${this.getStrategyName(this.currentStrategy)} 算法 • 第${this.currentPage}页</small>
         </div>
       </div>
     `;
+
+    // 清空分页控件
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (paginationContainer) {
+      paginationContainer.innerHTML = '';
+    }
   }
 
   /**
@@ -58,8 +85,14 @@ class RecommendationUI {
     const retryBtn = this.container.querySelector('.retry-btn');
     if (retryBtn) {
       retryBtn.addEventListener('click', () => {
-        this.loadRecommendations(this.currentStrategy);
+        this.loadRecommendations(this.currentStrategy, this.currentPage);
       });
+    }
+
+    // 清空分页控件
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (paginationContainer) {
+      paginationContainer.innerHTML = '';
     }
   }
 
@@ -84,6 +117,12 @@ class RecommendationUI {
         </div>
       </div>
     `;
+
+    // 清空分页控件
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (paginationContainer) {
+      paginationContainer.innerHTML = '';
+    }
   }
 
   /**
@@ -102,10 +141,127 @@ class RecommendationUI {
   }
 
   /**
+   * 渲染分页控件
+   * @param {Object} pagination - 分页信息
+   * @private
+   */
+  _renderPagination(pagination) {
+    const paginationContainer = document.getElementById('paginationContainer');
+    if (!paginationContainer) return;
+
+    const currentPage = pagination.current_page;
+    const totalPages = pagination.total_pages;
+
+    if (totalPages <= 1) {
+      paginationContainer.innerHTML = '';
+      return;
+    }
+
+    let html = `
+      <nav aria-label="推荐分页导航">
+        <ul class="pagination pagination-lg justify-content-center flex-wrap">
+    `;
+
+    // 上一页按钮
+    html += `
+      <li class="page-item ${currentPage <= 1 ? 'disabled' : ''}">
+        <a class="page-link" href="#" data-page="${currentPage - 1}" aria-label="上一页">
+          <i class="fas fa-chevron-left"></i>
+        </a>
+      </li>
+    `;
+
+    // 计算显示哪些页码
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + 4);
+
+    // 调整以确保始终显示5个页码(如果总页数足够)
+    if (endPage - startPage < 4 && totalPages > 5) {
+      if (startPage === 1) {
+        endPage = Math.min(5, totalPages);
+      } else {
+        startPage = Math.max(1, endPage - 4);
+      }
+    }
+
+    // 第一页和省略号
+    if (startPage > 1) {
+      html += `
+        <li class="page-item">
+          <a class="page-link" href="#" data-page="1">1</a>
+        </li>
+      `;
+      if (startPage > 2) {
+        html += `
+          <li class="page-item disabled">
+            <a class="page-link" href="#">...</a>
+          </li>
+        `;
+      }
+    }
+
+    // 中间页码
+    for (let i = startPage; i <= endPage; i++) {
+      html += `
+        <li class="page-item ${i === currentPage ? 'active' : ''}">
+          <a class="page-link" href="#" data-page="${i}">${i}</a>
+        </li>
+      `;
+    }
+
+    // 最后页和省略号
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        html += `
+          <li class="page-item disabled">
+            <a class="page-link" href="#">...</a>
+          </li>
+        `;
+      }
+      html += `
+        <li class="page-item">
+          <a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a>
+        </li>
+      `;
+    }
+
+    // 下一页按钮
+    html += `
+      <li class="page-item ${currentPage >= totalPages ? 'disabled' : ''}">
+        <a class="page-link" href="#" data-page="${currentPage + 1}" aria-label="下一页">
+          <i class="fas fa-chevron-right"></i>
+        </a>
+      </li>
+    `;
+
+    html += `
+        </ul>
+      </nav>
+      <div class="pagination-info text-center text-muted mt-2">
+        <small>共 ${pagination.total_items} 项结果，${totalPages} 页</small>
+      </div>
+    `;
+
+    paginationContainer.innerHTML = html;
+
+    // 添加事件监听
+    paginationContainer.querySelectorAll('.page-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const page = e.currentTarget.dataset.page;
+        if (page && !e.currentTarget.parentNode.classList.contains('disabled')) {
+          this.loadRecommendations(this.currentStrategy, parseInt(page));
+        }
+      });
+    });
+  }
+
+  /**
    * 渲染推荐项目
    * @param {Array} recommendations - 推荐数据
+   * @param {Object} pagination - 分页信息
    */
-  renderRecommendations(recommendations) {
+  renderRecommendations(recommendations, pagination) {
     if (!this.container) return;
     this.isLoading = false;
 
@@ -118,7 +274,7 @@ class RecommendationUI {
     let html = '<div class="row recommendation-grid">';
 
     recommendations.forEach(anime => {
-      const coverUrl = anime.cover_url || `/static/images/default-cover.jpg`; // 使用默认图片
+      const coverUrl = anime.cover_url || `/static/images/default-cover.jpg`;
       const score = anime.score || 0;
 
       html += `
@@ -156,6 +312,11 @@ class RecommendationUI {
     html += '</div>';
     this.container.innerHTML = html;
 
+    // 渲染分页控件
+    if (pagination) {
+      this._renderPagination(pagination);
+    }
+
     // 添加动画效果
     this._animateItems();
   }
@@ -163,40 +324,57 @@ class RecommendationUI {
   /**
    * 加载并显示推荐
    * @param {string} strategy - 推荐策略
+   * @param {number} page - 页码
    */
-  async loadRecommendations(strategy) {
+  async loadRecommendations(strategy, page = 1) {
     // 确保策略是有效的
     if (!strategy || strategy === 'undefined') {
-      console.warn('策略参数无效，使用默认hybrid策略');
+      console.warn('[QUANTUM-WARNING] 策略参数无效，量子回退至默认hybrid策略');
       strategy = 'hybrid';
     }
 
+    // 保存当前状态
     this.currentStrategy = strategy;
+    this.currentPage = parseInt(page) || 1;
+
+    // 显示加载状态
     this.showLoading();
 
     try {
       // 更新活动策略视觉效果
       this._updateActiveStrategy(strategy);
 
-      // 更新URL以反映当前策略
-      this._updateUrlStrategy(strategy);
+      // 更新URL以反映当前策略和页码
+      this._updateUrlParams(strategy, this.currentPage);
 
       // 更新策略描述
       this._updateStrategyDescription(strategy);
 
       // 使用推荐引擎获取数据
-      const recommendations = await recommendationEngine.getRecommendations(strategy);
-      this.renderRecommendations(recommendations);
+      const result = await window.recommendationEngine.getRecommendations(
+        strategy,
+        this.currentPage,
+        this.itemsPerPage
+      );
+
+      // 渲染推荐和分页
+      this.renderRecommendations(result.recommendations, result.pagination);
 
       // 重置重试计数
       this.retryCount = 0;
+
+      // 滚动到页面顶部
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
     } catch (error) {
-      console.error('加载推荐失败:', error);
+      console.error('[QUANTUM-ERROR] 加载推荐失败:', error);
 
       // 实现渐进式重试
       if (this.retryCount < this.maxRetries) {
         this.retryCount++;
-        console.log(`尝试重试 (${this.retryCount}/${this.maxRetries})...`);
+        console.log(`[QUANTUM-RETRY] 尝试重试 (${this.retryCount}/${this.maxRetries})...`);
 
         // 显示重试状态
         if (this.container) {
@@ -204,7 +382,7 @@ class RecommendationUI {
             <div class="col-12 text-center my-5">
               <div class="loading-container">
                 <div class="quantum-spinner"></div>
-                <p class="mt-3">重新连接中 (${this.retryCount}/${this.maxRetries})...</p>
+                <p class="mt-3">量子重连中 (${this.retryCount}/${this.maxRetries})...</p>
               </div>
             </div>
           `;
@@ -212,7 +390,7 @@ class RecommendationUI {
 
         // 增加延迟时间进行重试
         setTimeout(() => {
-          this.loadRecommendations(strategy);
+          this.loadRecommendations(strategy, this.currentPage);
         }, 1000 * this.retryCount);
       } else {
         this.showError(error.message);
@@ -221,16 +399,17 @@ class RecommendationUI {
   }
 
   /**
-   * 更新URL以反映当前策略
+   * 更新URL参数以反映当前策略和页码
    * @private
    */
-  _updateUrlStrategy(strategy) {
+  _updateUrlParams(strategy, page) {
     try {
       const url = new URL(window.location);
       url.searchParams.set('strategy', strategy);
-      window.history.pushState({}, '', url);
+      url.searchParams.set('page', page);
+      window.history.pushState({strategy, page}, '', url);
     } catch (e) {
-      console.warn('更新URL参数失败:', e);
+      console.warn('[QUANTUM-WARNING] 更新URL参数失败:', e);
     }
   }
 
@@ -264,7 +443,7 @@ class RecommendationUI {
     const descContainer = document.querySelector('.algo-header');
     if (!descContainer) return;
 
-    const stratDesc = recommendationEngine.getStrategyDescription(strategy);
+    const stratDesc = window.recommendationEngine.getStrategyDescription(strategy);
 
     descContainer.innerHTML = `
       <i class="fas ${stratDesc.icon} algo-icon ${stratDesc.className}"></i>
@@ -290,15 +469,7 @@ class RecommendationUI {
       setTimeout(() => {
         card.style.opacity = '1';
         card.style.transform = 'translateY(0)';
-      }, index * 100);
-
-      // 确保信心指示条动画
-      const confidenceBar = card.querySelector('.confidence-level');
-      if (confidenceBar) {
-        setTimeout(() => {
-          confidenceBar.style.width = `${confidenceBar.dataset.value}%`;
-        }, 500 + index * 100);
-      }
+      }, index * 70); // 减少延迟，加快整体动画
     });
   }
 
@@ -343,3 +514,27 @@ class RecommendationUI {
 
 // 创建全局实例
 window.recommendationUI = new RecommendationUI('recommendationContainer');
+
+// 添加URL参数解析和初始化
+document.addEventListener('DOMContentLoaded', function() {
+  // 获取URL参数
+  const urlParams = new URLSearchParams(window.location.search);
+  const strategy = urlParams.get('strategy') || 'hybrid';
+  const page = parseInt(urlParams.get('page')) || 1;
+
+  console.log(`[QUANTUM-INIT] 从URL初始化参数: 策略=${strategy}, 页码=${page}`);
+
+  // 确保推荐UI已初始化
+  if (window.recommendationUI) {
+    window.recommendationUI.loadRecommendations(strategy, page);
+  } else {
+    console.warn('[QUANTUM-WARNING] 推荐UI未初始化，尝试延迟加载');
+    setTimeout(() => {
+      if (window.recommendationUI) {
+        window.recommendationUI.loadRecommendations(strategy, page);
+      } else {
+        console.error('[QUANTUM-ERROR] 推荐UI组件加载失败');
+      }
+    }, 500);
+  }
+});

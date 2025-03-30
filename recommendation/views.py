@@ -323,20 +323,20 @@ def user_activity_dashboard(request):
         return redirect('anime:anime_list')
 
 
-# ========================= API 视图函数 =========================
+# 对RecommendationAPIView进行增强，支持分页信息返回
 
-# REST API 视图
 class RecommendationAPIView(APIView):
     """
-    推荐API端点
-    提供JSON格式的推荐结果，方便前端异步调用
+    推荐API端点 - 量子分页增强版
+    提供JSON格式的推荐结果，包含完整分页信息
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         # 获取请求参数
         strategy = request.query_params.get('strategy', 'hybrid')
-        limit = int(request.query_params.get('limit', 10))
+        page = int(request.query_params.get('page', 1))
+        limit = int(request.query_params.get('limit', 12))
 
         # 验证参数
         if strategy not in ['hybrid', 'cf', 'content', 'popular', 'ml']:
@@ -344,6 +344,9 @@ class RecommendationAPIView(APIView):
 
         if limit > 50:
             limit = 50  # 限制最大结果数
+
+        if page < 1:
+            page = 1
 
         try:
             # 检查GBDT模型文件是否存在
@@ -361,7 +364,7 @@ class RecommendationAPIView(APIView):
             # 获取推荐结果
             user_id = request.user.id
             recommendations = recommendation_engine.get_recommendations_for_user(
-                user_id, limit=limit, strategy=strategy
+                user_id, limit=limit * 2, strategy=strategy
             )
 
             # 获取推荐的动漫详情
@@ -382,10 +385,27 @@ class RecommendationAPIView(APIView):
                         'url': request.build_absolute_uri(f'/anime/{anime.slug}/')
                     })
 
+            # 计算分页信息
+            total_items = len(result)
+            total_pages = (total_items + limit - 1) // limit  # 向上取整
+
+            # 分页切片
+            start = (page - 1) * limit
+            end = min(start + limit, total_items)
+            paged_results = result[start:end]
+
             return Response({
                 'success': True,
                 'strategy': strategy,
-                'recommendations': result,
+                'recommendations': paged_results,
+                'pagination': {
+                    'current_page': page,
+                    'total_pages': max(1, total_pages),  # 至少1页
+                    'total_items': total_items,
+                    'items_per_page': limit,
+                    'has_next': page < total_pages,
+                    'has_previous': page > 1
+                },
                 'strategy_name': {
                     'hybrid': '混合推荐',
                     'cf': '协同过滤',
@@ -402,8 +422,6 @@ class RecommendationAPIView(APIView):
                 'error': '获取推荐失败',
                 'message': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
 @login_required
 @require_POST
 def remove_history(request, history_id):

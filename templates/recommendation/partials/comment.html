@@ -69,7 +69,7 @@
         </div>
     </div>
 
-    {% if not comment.is_reply %}
+    <!-- 移除条件判断，让所有评论都可以被回复 -->
     <div class="reply-form-container d-none" id="reply-form-{{ comment.id }}">
         <div class="reply-form">
             <textarea class="form-control reply-content" placeholder="回复 @{{ comment.user.username }}..."></textarea>
@@ -94,5 +94,4 @@
     {% endif %}
 
     <div class="replies-container" id="replies-{{ comment.id }}"></div>
-    {% endif %}
 </div>

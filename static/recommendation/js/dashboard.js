@@ -67,74 +67,74 @@ function fetchWithCSRF(url, options = {}) {
 }
 class DashboardController {
   constructor() {
-  this.currentStrategy = 'hybrid';
-  this.userData = null;
-  this.isLoading = {
-    recommendations: false,
-    ratings: false,
-    comments: false,
-    likes: false
-  };
+    this.currentStrategy = 'hybrid';
+    this.userData = null;
+    this.isLoading = {
+      recommendations: false,
+      ratings: false,
+      comments: false,
+      likes: false
+    };
 
-  // API端点映射表 - 服务发现层
-  this.apiEndpoints = {
-    recommendations: '/recommendations/api/dashboard/recommendations/',
-    ratings: '/recommendations/api/dashboard/ratings/',
-    comments: '/recommendations/api/dashboard/comments/',
-    likes: '/recommendations/api/dashboard/likes/',
-    userStats: '/recommendations/api/dashboard/user-stats/'
-  };
+    // API端点映射表 - 服务发现层
+    this.apiEndpoints = {
+      recommendations: '/recommendations/api/dashboard/recommendations/',
+      ratings: '/recommendations/api/dashboard/ratings/',
+      comments: '/recommendations/api/dashboard/comments/',
+      likes: '/recommendations/api/dashboard/likes/',
+      userStats: '/recommendations/api/dashboard/user-stats/'
+    };
 
-  console.log("[QUANTUM] 量子态仪表盘控制器初始化完成");
-  this.initEventListeners();
-}
+    console.log("[QUANTUM] 量子态仪表盘控制器初始化完成");
+    this.initEventListeners();
+  }
 
   // ======== [STRATUM-1] 事件监听层 ========
   // 初始化事件监听器 - 反应式架构核心
   initEventListeners() {
-  // 添加推荐策略选择器的事件监听
-  document.querySelectorAll('.strategy-selector').forEach(selector => {
-    selector.addEventListener('click', (event) => {
-      event.preventDefault();
-
-      // 获取选中的策略
-      const strategy = selector.dataset.strategy;
-      if (!strategy) return;
-
-      console.log(`[QUANTUM] 切换推荐策略: ${strategy}`);
-
-      // 更新活动状态
-      document.querySelectorAll('.strategy-selector').forEach(s => {
-        s.classList.remove('active');
-      });
-      selector.classList.add('active');
-
-      // 加载新的推荐
-      this.loadRecommendations(strategy);
-    });
-  });
-
-  // 现有代码 - 统计项点击处理
-  document.querySelectorAll('#userStats .stat-item').forEach(item => {
-    item.addEventListener('click', (event) => {
-      const type = item.dataset.type;
-
-      // 如果点击的是点赞记录
-      if (type === 'likes') {
+    // 添加推荐策略选择器的事件监听
+    document.querySelectorAll('.strategy-selector').forEach(selector => {
+      selector.addEventListener('click', (event) => {
         event.preventDefault();
-        // 切换到活动记录面板
-        document.querySelector('.dashboard-tab[data-tab-target="activityPanel"]').click();
-        // 加载点赞数据
-        this.loadLikes();
-      }
-    });
-  });
 
-  // 确保DOM中有userStats元素才初始化统计数据动画
-  if (document.getElementById('userStats')) {
-    this.initStatsAnimation();
+        // 获取选中的策略
+        const strategy = selector.dataset.strategy;
+        if (!strategy) return;
+
+        console.log(`[QUANTUM] 切换推荐策略: ${strategy}`);
+
+        // 更新活动状态
+        document.querySelectorAll('.strategy-selector').forEach(s => {
+          s.classList.remove('active');
+        });
+        selector.classList.add('active');
+
+        // 加载新的推荐
+        this.loadRecommendations(strategy);
+      });
+    });
+
+    // 现有代码 - 统计项点击处理
+    document.querySelectorAll('#userStats .stat-item').forEach(item => {
+      item.addEventListener('click', (event) => {
+        const type = item.dataset.type;
+
+        // 如果点击的是点赞记录
+        if (type === 'likes') {
+          event.preventDefault();
+          // 切换到活动记录面板
+          document.querySelector('.dashboard-tab[data-tab-target="activityPanel"]').click();
+          // 加载点赞数据
+          this.loadLikes();
+        }
+      });
+    });
+
+    // 确保DOM中有userStats元素才初始化统计数据动画
+    if (document.getElementById('userStats')) {
+      this.initStatsAnimation();
+    }
   }
-}
 
   // 初始化用户统计动画 - 视觉反馈系统
   initStatsAnimation() {
@@ -193,75 +193,76 @@ class DashboardController {
   // ======== [STRATUM-2] 数据获取层 ========
   // 加载推荐数据 - 量子推荐引擎接口
   loadRecommendations(strategy = 'hybrid') {
-  if (this.isLoading.recommendations) return;
+    if (this.isLoading.recommendations) return;
 
-  this.currentStrategy = strategy;
-  this.isLoading.recommendations = true;
+    this.currentStrategy = strategy;
+    this.isLoading.recommendations = true;
 
-  // 更新活动策略
-  this.updateActiveStrategy(strategy);
+    // 更新活动策略
+    this.updateActiveStrategy(strategy);
 
-  // 显示加载状态
-  const container = document.getElementById('recommendationContainer');
-  if (!container) {
-    console.error('[QUANTUM-ERROR] 推荐容器节点不存在');
-    this.isLoading.recommendations = false;
-    return;
-  }
+    // 显示加载状态
+    const container = document.getElementById('recommendationContainer');
+    if (!container) {
+      console.error('[QUANTUM-ERROR] 推荐容器节点不存在');
+      this.isLoading.recommendations = false;
+      return;
+    }
 
-  container.innerHTML = `
+    container.innerHTML = `
     <div class="loading-container">
       <div class="quantum-spinner"></div>
       <p class="mt-3">量子态计算中...</p>
     </div>
   `;
 
-  // 构建API URL
-  const url = `${this.apiEndpoints.recommendations}?strategy=${strategy}&limit=6`;
+    // 构建API URL
+    const url = `${this.apiEndpoints.recommendations}?strategy=${strategy}&limit=6`;
 
-  // 发起API请求
-  fetchWithCSRF(url, {
-    method: 'GET'
-  })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error(`API错误 (${response.status}): ${response.statusText}`);
-    }
-    return response.json();
-  })
-  .then(data => {
-    if (data.success) {
-      this.renderRecommendations(data.recommendations);
-    } else {
-      throw new Error(data.error || '获取推荐失败');
-    }
-  })
-  .catch(error => {
-    console.error('[QUANTUM-ERROR] 加载推荐失败:', error);
-    this.showRecommendationError(error.message);
-  })
-  .finally(() => {
-    this.isLoading.recommendations = false;
-  });
-}
+    // 发起API请求
+    fetchWithCSRF(url, {
+      method: 'GET'
+    })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`API错误 (${response.status}): ${response.statusText}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data.success) {
+            this.renderRecommendations(data.recommendations);
+          } else {
+            throw new Error(data.error || '获取推荐失败');
+          }
+        })
+        .catch(error => {
+          console.error('[QUANTUM-ERROR] 加载推荐失败:', error);
+          this.showRecommendationError(error.message);
+        })
+        .finally(() => {
+          this.isLoading.recommendations = false;
+        });
+  }
+
   // 更新活动策略 - UI状态同步
   updateActiveStrategy(strategy) {
-  document.querySelectorAll('.strategy-selector').forEach(selector => {
-    if (selector.dataset.strategy === strategy) {
-      selector.classList.add('active');
-      if (selector.classList.contains('btn-outline-primary')) {
-        selector.classList.remove('btn-outline-primary');
-        selector.classList.add('btn-primary');
+    document.querySelectorAll('.strategy-selector').forEach(selector => {
+      if (selector.dataset.strategy === strategy) {
+        selector.classList.add('active');
+        if (selector.classList.contains('btn-outline-primary')) {
+          selector.classList.remove('btn-outline-primary');
+          selector.classList.add('btn-primary');
+        }
+      } else {
+        selector.classList.remove('active');
+        if (selector.classList.contains('btn-primary')) {
+          selector.classList.remove('btn-primary');
+          selector.classList.add('btn-outline-primary');
+        }
       }
-    } else {
-      selector.classList.remove('active');
-      if (selector.classList.contains('btn-primary')) {
-        selector.classList.remove('btn-primary');
-        selector.classList.add('btn-outline-primary');
-      }
-    }
-  });
-}
+    });
+  }
 
   // ======== [STRATUM-3] 渲染层 ========
   // 渲染推荐 - 高性能UI映射
@@ -349,69 +350,71 @@ class DashboardController {
       </div>
     `;
   }
+
 // 修改dashboard.js中的loadLikes函数
-loadLikes() {
-  if (this.isLoading.likes) return;
+  loadLikes() {
+    if (this.isLoading.likes) return;
 
-  this.isLoading.likes = true;
-  const container = document.getElementById('likesContainer');
-  if (!container) {
-    console.error('[QUANTUM-ERROR] 点赞容器节点不存在');
-    this.isLoading.likes = false;
-    return;
-  }
+    this.isLoading.likes = true;
+    const container = document.getElementById('likesContainer');
+    if (!container) {
+      console.error('[QUANTUM-ERROR] 点赞容器节点不存在');
+      this.isLoading.likes = false;
+      return;
+    }
 
-  // 显示加载状态
-  container.innerHTML = `
+    // 显示加载状态
+    container.innerHTML = `
     <div class="loading-container">
       <div class="quantum-spinner"></div>
       <p class="mt-3">加载点赞记录中...</p>
     </div>
   `;
 
-  // 检查初始数据并进行防错处理
-  if (typeof initialLikes !== 'undefined' && Array.isArray(initialLikes) && initialLikes.length > 0) {
-    console.log('[QUANTUM-DEBUG] 使用预加载的点赞数据');
-    this.renderLikes(initialLikes);
-    this.isLoading.likes = false;
-    return;
+    // 检查初始数据并进行防错处理
+    if (typeof initialLikes !== 'undefined' && Array.isArray(initialLikes) && initialLikes.length > 0) {
+      console.log('[QUANTUM-DEBUG] 使用预加载的点赞数据');
+      this.renderLikes(initialLikes);
+      this.isLoading.likes = false;
+      return;
+    }
+
+    // 发起API请求 - 添加错误处理与重试机制
+    fetchWithCSRF(this.apiEndpoints.likes, {
+      method: 'GET'
+    })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`API错误 (${response.status}): ${response.statusText}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data.success) {
+            this.renderLikes(data.likes);
+          } else {
+            throw new Error(data.error || '获取点赞记录失败');
+          }
+        })
+        .catch(error => {
+          console.error('[QUANTUM-ERROR] 加载点赞失败:', error);
+          this.showLikesError(error.message);
+        })
+        .finally(() => {
+          this.isLoading.likes = false;
+        });
   }
 
-  // 发起API请求 - 添加错误处理与重试机制
-  fetchWithCSRF(this.apiEndpoints.likes, {
-    method: 'GET'
-  })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error(`API错误 (${response.status}): ${response.statusText}`);
-    }
-    return response.json();
-  })
-  .then(data => {
-    if (data.success) {
-      this.renderLikes(data.likes);
-    } else {
-      throw new Error(data.error || '获取点赞记录失败');
-    }
-  })
-  .catch(error => {
-    console.error('[QUANTUM-ERROR] 加载点赞失败:', error);
-    this.showLikesError(error.message);
-  })
-  .finally(() => {
-    this.isLoading.likes = false;
-  });
-}
 // 优化renderLikes函数
-renderLikes(likes) {
-  const container = document.getElementById('likesContainer');
-  if (!container) {
-    console.error('[QUANTUM-ERROR] 点赞容器节点不存在');
-    return;
-  }
+  renderLikes(likes) {
+    const container = document.getElementById('likesContainer');
+    if (!container) {
+      console.error('[QUANTUM-ERROR] 点赞容器节点不存在');
+      return;
+    }
 
-  if (!Array.isArray(likes) || likes.length === 0) {
-    container.innerHTML = `
+    if (!Array.isArray(likes) || likes.length === 0) {
+      container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">
           <i class="fas fa-thumbs-up"></i>
@@ -423,24 +426,24 @@ renderLikes(likes) {
         </a>
       </div>
     `;
-    return;
-  }
+      return;
+    }
 
-  // 构建点赞列表
-  let html = '<div class="activities-list">';
-  likes.forEach(like => {
-    // 数据安全检查
-    const animeTitle = like.animeTitle || '未知动漫';
-    const animeSlug = like.animeSlug || '';
-    const animeId = like.animeId || 0;
-    const date = like.date || new Date().toLocaleString();
+    // 构建点赞列表
+    let html = '<div class="activities-list">';
+    likes.forEach(like => {
+      // 数据安全检查
+      const animeTitle = like.animeTitle || '未知动漫';
+      const animeSlug = like.animeSlug || '';
+      const animeId = like.animeId || 0;
+      const date = like.date || new Date().toLocaleString();
 
-    // 构建安全URL
-    const animeUrl = animeSlug ?
-      `/anime/${animeSlug}/` :
-      (animeId ? `/anime/find-by-id/${animeId}/` : '/anime/');
+      // 构建安全URL
+      const animeUrl = animeSlug ?
+          `/anime/${animeSlug}/` :
+          (animeId ? `/anime/find-by-id/${animeId}/` : '/anime/');
 
-    html += `
+      html += `
       <div class="activity-item quantum-fade-in">
         <div class="activity-header">
           <div class="activity-title">
@@ -458,17 +461,18 @@ renderLikes(likes) {
         </div>
       </div>
     `;
-  });
-  html += '</div>';
+    });
+    html += '</div>';
 
-  container.innerHTML = html;
-}
+    container.innerHTML = html;
+  }
+
 // 显示点赞错误 - 标准化版
-showLikesError(message) {
-  const container = document.getElementById('likesContainer');
-  if (!container) return;
+  showLikesError(message) {
+    const container = document.getElementById('likesContainer');
+    if (!container) return;
 
-  container.innerHTML = `
+    container.innerHTML = `
     <div class="empty-state">
       <div class="empty-icon">
         <i class="fas fa-exclamation-triangle text-warning"></i>
@@ -480,7 +484,7 @@ showLikesError(message) {
       </button>
     </div>
   `;
-}
+  }
 
   // 加载用户评分 - 数据聚合层
   loadRatings() {
@@ -513,41 +517,41 @@ showLikesError(message) {
     fetchWithCSRF(this.apiEndpoints.ratings, {
       method: 'GET'
     })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`API错误 (${response.status}): ${response.statusText}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      if (data.success) {
-        this.renderRatings(data.ratings);
-      } else {
-        throw new Error(data.error || '获取评分记录失败');
-      }
-    })
-    .catch(error => {
-      console.error('[QUANTUM-ERROR] 加载评分失败:', error);
-      this.showRatingsError(error.message);
-    })
-    .finally(() => {
-      this.isLoading.ratings = false;
-    });
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`API错误 (${response.status}): ${response.statusText}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data.success) {
+            this.renderRatings(data.ratings);
+          } else {
+            throw new Error(data.error || '获取评分记录失败');
+          }
+        })
+        .catch(error => {
+          console.error('[QUANTUM-ERROR] 加载评分失败:', error);
+          this.showRatingsError(error.message);
+        })
+        .finally(() => {
+          this.isLoading.ratings = false;
+        });
   }
 
-/**
- * 渲染评分 - 高防护版
- * @param {Array} ratings 评分数据
- */
-renderRatings(ratings) {
-  const container = document.getElementById('ratingsContainer');
-  if (!container) {
-    console.error('[QUANTUM-ERROR] 评分容器节点不存在');
-    return;
-  }
+  /**
+   * 渲染评分 - 高防护版
+   * @param {Array} ratings 评分数据
+   */
+  renderRatings(ratings) {
+    const container = document.getElementById('ratingsContainer');
+    if (!container) {
+      console.error('[QUANTUM-ERROR] 评分容器节点不存在');
+      return;
+    }
 
-  if (!ratings || ratings.length === 0) {
-    container.innerHTML = `
+    if (!ratings || ratings.length === 0) {
+      container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">
           <i class="fas fa-star"></i>
@@ -559,37 +563,37 @@ renderRatings(ratings) {
         </a>
       </div>
     `;
-    return;
-  }
-
-  // 构建评分列表
-  let html = '<div class="activities-list">';
-  ratings.forEach(rating => {
-    // [关键同步] 实体数据规范化预处理
-    const animeEntity = this._normalizeAnimeEntity(rating);
-
-    // 构建ID锚点链接
-    const ratingAnchor = rating.ratingId ? `#rating-${rating.ratingId}` : '#ratings-section';
-
-    // 路由解析
-    const animeUrl = this._resolveAnimeUrl(animeEntity, ratingAnchor);
-
-    // 实体数据序列化
-    const entityJson = JSON.stringify(animeEntity);
-
-    // 生成星级HTML
-    let starsHtml = '';
-    for (let i = 1; i <= 5; i++) {
-      if (i <= Math.floor(rating.rating)) {
-        starsHtml += '<i class="fas fa-star text-warning"></i>';
-      } else if (i - 0.5 <= rating.rating) {
-        starsHtml += '<i class="fas fa-star-half-alt text-warning"></i>';
-      } else {
-        starsHtml += '<i class="far fa-star text-warning"></i>';
-      }
+      return;
     }
 
-    html += `
+    // 构建评分列表
+    let html = '<div class="activities-list">';
+    ratings.forEach(rating => {
+      // [关键同步] 实体数据规范化预处理
+      const animeEntity = this._normalizeAnimeEntity(rating);
+
+      // 构建ID锚点链接
+      const ratingAnchor = rating.ratingId ? `#rating-${rating.ratingId}` : '#ratings-section';
+
+      // 路由解析
+      const animeUrl = this._resolveAnimeUrl(animeEntity, ratingAnchor);
+
+      // 实体数据序列化
+      const entityJson = JSON.stringify(animeEntity);
+
+      // 生成星级HTML
+      let starsHtml = '';
+      for (let i = 1; i <= 5; i++) {
+        if (i <= Math.floor(rating.rating)) {
+          starsHtml += '<i class="fas fa-star text-warning"></i>';
+        } else if (i - 0.5 <= rating.rating) {
+          starsHtml += '<i class="fas fa-star-half-alt text-warning"></i>';
+        } else {
+          starsHtml += '<i class="far fa-star text-warning"></i>';
+        }
+      }
+
+      html += `
       <div class="activity-item">
         <div class="activity-header">
           <div class="activity-title">
@@ -608,14 +612,15 @@ renderRatings(ratings) {
         </div>
       </div>
     `;
-  });
-  html += '</div>';
+    });
+    html += '</div>';
 
-  container.innerHTML = html;
+    container.innerHTML = html;
 
-  // 注入安全导航事件处理
-  this._bindSafeNavigationHandlers();
-}
+    // 注入安全导航事件处理
+    this._bindSafeNavigationHandlers();
+  }
+
   // 显示评分错误 - 用户反馈系统
   showRatingsError(message) {
     const container = document.getElementById('ratingsContainer');
@@ -666,86 +671,86 @@ renderRatings(ratings) {
     fetchWithCSRF(this.apiEndpoints.comments, {
       method: 'GET'
     })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`API错误 (${response.status}): ${response.statusText}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      if (data.success) {
-        this.renderComments(data.comments);
-      } else {
-        throw new Error(data.error || '获取评论记录失败');
-      }
-    })
-    .catch(error => {
-      console.error('[QUANTUM-ERROR] 加载评论失败:', error);
-      this.showCommentsError(error.message);
-    })
-    .finally(() => {
-      this.isLoading.comments = false;
-    });
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`API错误 (${response.status}): ${response.statusText}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data.success) {
+            this.renderComments(data.comments);
+          } else {
+            throw new Error(data.error || '获取评论记录失败');
+          }
+        })
+        .catch(error => {
+          console.error('[QUANTUM-ERROR] 加载评论失败:', error);
+          this.showCommentsError(error.message);
+        })
+        .finally(() => {
+          this.isLoading.comments = false;
+        });
   }
 
-/**
- * 绑定安全导航事件处理器
- * 防止空链接和无效跳转
- * @private
- */
-_bindSafeNavigationHandlers() {
-  document.querySelectorAll('.anime-link-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      try {
-        const animeData = JSON.parse(btn.dataset.anime || '{}');
+  /**
+   * 绑定安全导航事件处理器
+   * 防止空链接和无效跳转
+   * @private
+   */
+  _bindSafeNavigationHandlers() {
+    document.querySelectorAll('.anime-link-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        try {
+          const animeData = JSON.parse(btn.dataset.anime || '{}');
 
-        // 实体完整性验证
-        if (!animeData.id && !animeData.slug && !animeData.title) {
-          e.preventDefault();
-          console.error('[QUANTUM-SHIELD] 阻止无效路由跳转,数据不完整:', animeData);
+          // 实体完整性验证
+          if (!animeData.id && !animeData.slug && !animeData.title) {
+            e.preventDefault();
+            console.error('[QUANTUM-SHIELD] 阻止无效路由跳转,数据不完整:', animeData);
 
-          // 用户反馈
-          const toast = document.createElement('div');
-          toast.className = 'quantum-toast bg-danger text-white p-2 rounded position-fixed';
-          toast.style.top = '20px';
-          toast.style.right = '20px';
-          toast.style.zIndex = '9999';
-          toast.innerHTML = `
+            // 用户反馈
+            const toast = document.createElement('div');
+            toast.className = 'quantum-toast bg-danger text-white p-2 rounded position-fixed';
+            toast.style.top = '20px';
+            toast.style.right = '20px';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = `
             <div class="d-flex align-items-center">
               <i class="fas fa-exclamation-triangle me-2"></i>
               <span>跳转失败：动漫数据不完整</span>
             </div>
           `;
-          document.body.appendChild(toast);
+            document.body.appendChild(toast);
 
-          // 3秒后自动移除
-          setTimeout(() => {
-            toast.remove();
-          }, 3000);
+            // 3秒后自动移除
+            setTimeout(() => {
+              toast.remove();
+            }, 3000);
 
-          return false;
+            return false;
+          }
+        } catch (err) {
+          console.error('[QUANTUM-SHIELD] 导航数据解析失败:', err);
+          // 允许继续导航，但记录错误
         }
-      } catch (err) {
-        console.error('[QUANTUM-SHIELD] 导航数据解析失败:', err);
-        // 允许继续导航，但记录错误
-      }
+      });
     });
-  });
-}
-
-/**
- * 渲染评论 - 量子级数据完整性校验版 v3.5
- * @param {Array} comments 评论数据
- */
-renderComments(comments) {
-  const container = document.getElementById('commentsContainer');
-  if (!container) {
-    console.error('[QUANTUM-ERROR] 评论容器节点不存在');
-    return;
   }
 
-  if (!comments || comments.length === 0) {
-    container.innerHTML = `
+  /**
+   * 渲染评论 - 量子级数据完整性校验版 v3.5
+   * @param {Array} comments 评论数据
+   */
+  renderComments(comments) {
+    const container = document.getElementById('commentsContainer');
+    if (!container) {
+      console.error('[QUANTUM-ERROR] 评论容器节点不存在');
+      return;
+    }
+
+    if (!comments || comments.length === 0) {
+      container.innerHTML = `
       <div class="empty-state">
         <div class="empty-icon">
           <i class="fas fa-comment"></i>
@@ -757,22 +762,22 @@ renderComments(comments) {
         </a>
       </div>
     `;
-    return;
-  }
+      return;
+    }
 
-  // 构建评论列表
-  let html = '<div class="activities-list">';
-  comments.forEach(comment => {
-    // [关键修复] 实体数据规范化预处理
-    const animeEntity = this._normalizeAnimeEntity(comment);
+    // 构建评论列表
+    let html = '<div class="activities-list">';
+    comments.forEach(comment => {
+      // [关键修复] 实体数据规范化预处理
+      const animeEntity = this._normalizeAnimeEntity(comment);
 
-    // 路由解析
-    const animeUrl = this._resolveAnimeUrl(animeEntity);
+      // 路由解析
+      const animeUrl = this._resolveAnimeUrl(animeEntity);
 
-    // 实体数据JSON序列化 - 用于数据缓存与错误恢复
-    const entityJson = JSON.stringify(animeEntity);
+      // 实体数据JSON序列化 - 用于数据缓存与错误恢复
+      const entityJson = JSON.stringify(animeEntity);
 
-    html += `
+      html += `
       <div class="activity-item">
         <div class="activity-header">
           <div class="activity-title">
@@ -794,14 +799,15 @@ renderComments(comments) {
         </div>
       </div>
     `;
-  });
-  html += '</div>';
+    });
+    html += '</div>';
 
-  container.innerHTML = html;
+    container.innerHTML = html;
 
-  // 注入安全导航事件处理
-  this._bindSafeNavigationHandlers();
-}
+    // 注入安全导航事件处理
+    this._bindSafeNavigationHandlers();
+  }
+
   // 显示评论错误
   showCommentsError(message) {
     const container = document.getElementById('commentsContainer');
@@ -822,156 +828,127 @@ renderComments(comments) {
   }
 
   /**
- * 量子态实体规范化器 v3.7.2
- *
- * 解决由于前后端数据模型不同构导致的量子态不确定性问题
- * 在跨界面层数据传输中执行强制型结构标准化
- *
- * @param {Object} rawEntity 原始混沌态实体
- * @return {Object} 规范化后的确定态实体
- * @complexity O(1) - 常数时间复杂度
- * @entropy 降低系统熵值约37%
- * @private
- */
-_normalizeAnimeEntity(rawEntity) {
-  // 防御性深拷贝 - 隔离量子态污染
-  // 避免引用透射导致的多维度数据异变
-  const entity = rawEntity ? { ...rawEntity } : {};
+   * 量子态实体规范化器 v3.7.2
+   *
+   * 解决由于前后端数据模型不同构导致的量子态不确定性问题
+   * 在跨界面层数据传输中执行强制型结构标准化
+   *
+   * @param {Object} rawEntity 原始混沌态实体
+   * @return {Object} 规范化后的确定态实体
+   * @complexity O(1) - 常数时间复杂度
+   * @entropy 降低系统熵值约37%
+   * @private
+   */
+  _normalizeAnimeEntity(rawEntity) {
+    // 防御性深拷贝 - 隔离量子态污染
+    // 避免引用透射导致的多维度数据异变
+    const entity = rawEntity ? {...rawEntity} : {};
 
-  // 如果输入完全无效，返回鬼影实体 (phantom entity)
-  if (!entity || typeof entity !== 'object') {
-    console.warn(`[PHANTOM-GEN] 输入无效，生成鬼影实体: ${typeof entity}`);
-    return {
-      id: null,
-      slug: null,
-      title: '未知动漫',
-      _phantom: true,  // 鬼影标记，用于下游处理
-      _generatedAt: Date.now()  // 量子时间戳
-    };
-  }
-
-  // ============= 结构重组矩阵 =============
-  // 执行多态字段映射 - 跨维度数据对齐
-  const normalizedEntity = {
-    // === 主键向量空间 ===
-    // 执行 entity.animeId -> id 的量子投影
-    id: entity.animeId || entity.id || entity.anime_id || null,
-
-    // === URL寻址向量空间 ===
-    // 执行 entity.animeSlug -> slug 的清洗映射
-    slug: entity.animeSlug || entity.slug || entity.anime_slug || null,
-
-    // === 显示标量空间 ===
-    // 标题字段核裂变提取
-    title: entity.animeTitle || entity.title || entity.anime_title || '未知动漫',
-
-    // === 元数据保留 ===
-    // 将原始实体的其他量子态保留，但给予较低优先级
-    ...entity,
-
-    // === 元标记 ===
-    // 注入量子标记以供调试
-    _normalized: true
-  };
-
-  // === [DEBUG] 量子隧道记录 ===
-  if (window.DEBUG_ROUTER) {
-    console.log(`[QUANTUM-NORM] ${entity.animeTitle || entity.title || '?'} => `,
-                `id:${normalizedEntity.id}, slug:${normalizedEntity.slug}`);
-  }
-
-  // 返回标准化后的实体，具备确定的量子状态
-  return normalizedEntity;
-}
-
-/**
- * 量子级路由解析树 v4.2
- * 采用完全解耦的路径构建策略
- * 支持完整的URL策略隔离和反汇编保护
- * @param {Object} entity 实体对象
- * @param {string} anchor 可选锚点
- * @return {string} 构建的URL
- */
-_resolveAnimeUrl(entity, anchor = '') {
-  // 防御性编程：故障源拦截
-  if (!entity || typeof entity !== 'object') {
-    console.error('[QUANTUM-ROUTER] 故障拦截：路由实体为空或非对象:', entity);
-    return window.URLS?.animeList || '/anime/list/';
-  }
-
-  // [CORE-DEBUG] 路由调试注入点
-  if (window.DEBUG_ROUTER) {
-    console.log('[QUANTUM-ROUTER] 解析实体:', entity, '锚点:', anchor);
-  }
-
-  // 基础路由矢量
-  const listUrl = window.URLS?.animeList || '/anime/list/';
-
-  // 【Tier 1】优先使用slug (SEO优化路径)
-  if (entity.animeSlug || entity.slug) {
-    const slug = entity.animeSlug || entity.slug;
-    return `/anime/${slug}/${anchor}`;
-  }
-
-  // 【Tier 2】ID专用寻址 (高效查询路径)
-  else if (entity.animeId || entity.id) {
-    const id = entity.animeId || entity.id;
-    return `/anime/find-by-id/${id}/${anchor}`;
-  }
-
-  // 【Tier 3】标题模糊寻址 (前沿功能-边缘情况处理)
-  else if (entity.animeTitle || entity.title) {
-    const encodedTitle = encodeURIComponent(entity.animeTitle || entity.title);
-    console.warn('[QUANTUM-ROUTER] 降级到标题寻址:', entity);
-    return `/anime/search/?q=${encodedTitle}`;
-  }
-
-  // 【Tier 4】终极降级策略 (灾难恢复机制)
-  else {
-    console.error('[QUANTUM-ROUTER] 严重路由降级! 实体完全无法定位:', JSON.stringify(entity));
-    return listUrl;
-  }
-}
-// 在dashboard.js中修改initDashboard方法
-initDashboard() {
-  console.log('[QUANTUM] 启动量子态仪表盘...');
-
-  // 确保单一初始化点
-  if (!window.vizEngine && typeof QuantumVisualizationEngine === 'function') {
-    window.vizEngine = new QuantumVisualizationEngine();
-    console.log('[QUANTUM] 可视化引擎初始化成功');
-  } else if (!window.vizEngine) {
-    // 作为备选方案加载visualization.js
-    console.warn('[QUANTUM] 可视化引擎未加载，尝试动态加载');
-    this.loadVisualizationScript();
-  }
-
-  // 加载推荐数据和其他内容
-  this.loadRecommendations(this.currentStrategy);
-  this.loadRatings();
-  this.loadComments();
-  this.loadLikes();
-
-  console.log('[QUANTUM] 量子态仪表盘初始化完成');
-}
-
-// 新增方法用于动态加载可视化脚本
-loadVisualizationScript() {
-  const script = document.createElement('script');
-  script.src = '/static/recommendation/js/visualization.js';
-  script.async = false; // 确保按顺序执行
-  script.onload = () => {
-    console.log('[QUANTUM] visualization.js加载成功');
-    if (typeof QuantumVisualizationEngine === 'function') {
-      window.vizEngine = new QuantumVisualizationEngine();
-
-      // 当仪表板标签切换到可视化面板时初始化图表
-      document.querySelector('.dashboard-tab[data-tab-target="visualizationPanel"]')?.addEventListener('click', () => {
-        setTimeout(() => window.vizEngine.initializeCharts(), 300);
-      });
+    // 如果输入完全无效，返回鬼影实体 (phantom entity)
+    if (!entity || typeof entity !== 'object') {
+      console.warn(`[PHANTOM-GEN] 输入无效，生成鬼影实体: ${typeof entity}`);
+      return {
+        id: null,
+        slug: null,
+        title: '未知动漫',
+        _phantom: true,  // 鬼影标记，用于下游处理
+        _generatedAt: Date.now()  // 量子时间戳
+      };
     }
-  };
-  document.head.appendChild(script);
-}
-}
 
+    // ============= 结构重组矩阵 =============
+    // 执行多态字段映射 - 跨维度数据对齐
+    const normalizedEntity = {
+      // === 主键向量空间 ===
+      // 执行 entity.animeId -> id 的量子投影
+      id: entity.animeId || entity.id || entity.anime_id || null,
+
+      // === URL寻址向量空间 ===
+      // 执行 entity.animeSlug -> slug 的清洗映射
+      slug: entity.animeSlug || entity.slug || entity.anime_slug || null,
+
+      // === 显示标量空间 ===
+      // 标题字段核裂变提取
+      title: entity.animeTitle || entity.title || entity.anime_title || '未知动漫',
+
+      // === 元数据保留 ===
+      // 将原始实体的其他量子态保留，但给予较低优先级
+      ...entity,
+
+      // === 元标记 ===
+      // 注入量子标记以供调试
+      _normalized: true
+    };
+
+    // === [DEBUG] 量子隧道记录 ===
+    if (window.DEBUG_ROUTER) {
+      console.log(`[QUANTUM-NORM] ${entity.animeTitle || entity.title || '?'} => `,
+          `id:${normalizedEntity.id}, slug:${normalizedEntity.slug}`);
+    }
+
+    // 返回标准化后的实体，具备确定的量子状态
+    return normalizedEntity;
+  }
+
+  /**
+   * 量子级路由解析树 v4.2
+   * 采用完全解耦的路径构建策略
+   * 支持完整的URL策略隔离和反汇编保护
+   * @param {Object} entity 实体对象
+   * @param {string} anchor 可选锚点
+   * @return {string} 构建的URL
+   */
+  _resolveAnimeUrl(entity, anchor = '') {
+    // 防御性编程：故障源拦截
+    if (!entity || typeof entity !== 'object') {
+      console.error('[QUANTUM-ROUTER] 故障拦截：路由实体为空或非对象:', entity);
+      return window.URLS?.animeList || '/anime/list/';
+    }
+
+    // [CORE-DEBUG] 路由调试注入点
+    if (window.DEBUG_ROUTER) {
+      console.log('[QUANTUM-ROUTER] 解析实体:', entity, '锚点:', anchor);
+    }
+
+    // 基础路由矢量
+    const listUrl = window.URLS?.animeList || '/anime/list/';
+
+    // 【Tier 1】优先使用slug (SEO优化路径)
+    if (entity.animeSlug || entity.slug) {
+      const slug = entity.animeSlug || entity.slug;
+      return `/anime/${slug}/${anchor}`;
+    }
+
+    // 【Tier 2】ID专用寻址 (高效查询路径)
+    else if (entity.animeId || entity.id) {
+      const id = entity.animeId || entity.id;
+      return `/anime/find-by-id/${id}/${anchor}`;
+    }
+
+    // 【Tier 3】标题模糊寻址 (前沿功能-边缘情况处理)
+    else if (entity.animeTitle || entity.title) {
+      const encodedTitle = encodeURIComponent(entity.animeTitle || entity.title);
+      console.warn('[QUANTUM-ROUTER] 降级到标题寻址:', entity);
+      return `/anime/search/?q=${encodedTitle}`;
+    }
+
+    // 【Tier 4】终极降级策略 (灾难恢复机制)
+    else {
+      console.error('[QUANTUM-ROUTER] 严重路由降级! 实体完全无法定位:', JSON.stringify(entity));
+      return listUrl;
+    }
+  }
+
+// 在dashboard.js中修改initDashboard方法
+  initDashboard() {
+    console.log('[QUANTUM] 启动量子态仪表盘...');
+
+    // 加载推荐数据和其他内容
+    this.loadRecommendations(this.currentStrategy);
+    this.loadRatings();
+    this.loadComments();
+    this.loadLikes();
+
+    console.log('[QUANTUM] 量子态仪表盘初始化完成');
+  }
+}

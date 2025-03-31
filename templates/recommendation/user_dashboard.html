@@ -15,12 +15,6 @@
   <link rel="stylesheet" href="/static/css/interaction.css">
   <link rel="stylesheet" href="/static/recommendation/css/recommendation-enhanced.css">
 
-  <!-- 添加数据可视化CSS -->
-  <link rel="stylesheet" href="/static/recommendation/css/visualization.css">
-
-  <!-- ECharts 库 -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.0/echarts.min.js"></script>
-
   <!-- 核心脚本预加载 - 量子加速流水线 -->
   <link rel="preload" href="/static/recommendation/js/dashboard.js" as="script">
   <link rel="preload" href="/static/recommendation/js/exploration-controller.js" as="script">
@@ -948,9 +942,6 @@
           <button class="dashboard-tab" data-tab-target="activityPanel">
             <i class="fas fa-history me-2"></i>活动记录
           </button>
-          <button class="dashboard-tab" data-tab-target="visualizationPanel">
-            <i class="fas fa-chart-bar me-2"></i>数据分析
-          </button>
         </div>
 
         <!-- 仪表板面板容器 -->
@@ -1219,11 +1210,6 @@
 
             </div>
           </div>
-
-          <!-- 数据可视化面板 -->
-          <div class="dashboard-panel" id="visualizationPanel">
-            {% include 'recommendation/partials/visualization_components.html' %}
-          </div>
         </div>
       </div>
     </div>
@@ -1233,7 +1219,6 @@
   <!-- 基础依赖 -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="/static/recommendation/js/visualization.js"></script>
   <!-- 核心架构组件 -->
   <script src="/static/recommendation/js/dashboard.js"></script>
   <script src="/static/recommendation/js/exploration-controller.js"></script>
@@ -1288,11 +1273,6 @@
           // 设置当前按钮和面板为活动状态
           this.classList.add('active');
           document.getElementById(targetId).classList.add('active');
-          // 如果激活了可视化面板，则初始化可视化
-          if (targetId === 'visualizationPanel' && window.vizEngine) {
-            console.log('[QUANTUM] 初始化可视化...');
-            window.vizEngine.initializeCharts();
-          }
           // 触发窗口调整事件，让图表重新绘制
           window.dispatchEvent(new Event('resize'));
         });

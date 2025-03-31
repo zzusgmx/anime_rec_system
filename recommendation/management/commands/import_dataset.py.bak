@@ -1,0 +1,538 @@
+# recommendation/management/commands/import_dataset.py
+
+import os
+import pandas as pd
+import numpy as np
+from django.core.management.base import BaseCommand
+from django.db import transaction
+from django.utils import timezone
+from django.contrib.auth.models import User
+from anime.models import Anime, AnimeType
+from recommendation.models import UserRating
+import logging
+
+# 配置日志记录器
+logger = logging.getLogger('django')
+
+
+class Command(BaseCommand):
+    help = 'MovieLens/Kaggle数据集导入工具 - 系统冷启动引擎'
+
+    def add_arguments(self, parser):
+        parser.add_argument('--file', type=str, help='数据集CSV文件路径')
+        parser.add_argument('--type', type=str, default='movielens',
+                            help='数据集类型: movielens, kaggle')
+        parser.add_argument('--batch-size', type=int, default=1000,
+                            help='批量插入大小，防止OOM')
+        parser.add_argument('--test-mode', action='store_true',
+                            help='测试模式: 只导入少量数据进行验证')
+
+    def handle(self, *args, **options):
+        file_path = options['file']
+        dataset_type = options['type']
+        batch_size = options['batch_size']
+        test_mode = options['test_mode']
+
+        if not file_path or not os.path.exists(file_path):
+            self.stderr.write(self.style.ERROR(f'文件不存在: {file_path}'))
+            return
+
+        self.stdout.write(self.style.WARNING(f'[量子态] 准备导入数据集: {dataset_type}'))
+
+        # 根据数据集类型选择导入策略
+        if dataset_type == 'movielens':
+            self._import_movielens(file_path, batch_size, test_mode)
+        elif dataset_type == 'kaggle':
+            self._import_kaggle(file_path, batch_size, test_mode)
+        else:
+            self.stderr.write(self.style.ERROR(f'未知数据集类型: {dataset_type}'))
+
+    def _import_movielens(self, file_path, batch_size, test_mode):
+        """导入MovieLens数据集"""
+        try:
+            # 确定文件类型并加载
+            if file_path.endswith('.csv'):
+                df = pd.read_csv(file_path)
+            elif file_path.endswith('.dat'):
+                # MovieLens 1M/10M格式
+                df = pd.read_csv(file_path, sep='::',
+                                 names=['userId', 'movieId', 'rating', 'timestamp'],
+                                 engine='python')
+            else:
+                self.stderr.write(self.style.ERROR('不支持的文件格式，需要CSV或DAT文件'))
+                return
+
+            # 测试模式下只处理一小部分数据
+            if test_mode:
+                df = df.sample(min(1000, len(df)))
+                self.stdout.write(self.style.WARNING(f'测试模式: 随机采样 {len(df)} 条记录'))
+
+            # 检查必要字段
+            required_fields = ['userId', 'movieId', 'rating']
+            missing_fields = [field for field in required_fields if field not in df.columns]
+            if missing_fields:
+                self.stderr.write(self.style.ERROR(
+                    f'数据集缺少必要字段: {", ".join(missing_fields)}'))
+                return
+
+            # 获取电影数据
+            if 'movies.csv' in file_path:
+                self._import_movies(df, batch_size)
+                return
+
+            # 如果是评分数据，需要将MovieLens ID映射到我们的系统ID
+            # 首先加载电影元数据
+            movies_path = os.path.join(os.path.dirname(file_path), 'movies.csv')
+            if not os.path.exists(movies_path):
+                self.stderr.write(self.style.WARNING(
+                    '无法找到电影元数据文件movies.csv，将只导入评分数据'))
+                movies_df = None
+            else:
+                movies_df = pd.read_csv(movies_path)
+
+            # 导入评分数据
+            self._import_ratings(df, movies_df, batch_size)
+
+        except Exception as e:
+            self.stderr.write(self.style.ERROR(f'导入MovieLens数据集时出错: {str(e)}'))
+            logger.exception('MovieLens导入异常')
+
+    def _import_kaggle(self, file_path, batch_size, test_mode):
+        """导入Kaggle动漫数据集"""
+        try:
+            # 加载数据集
+            df = pd.read_csv(file_path)
+
+            # 测试模式
+            if test_mode:
+                df = df.sample(min(1000, len(df)))
+                self.stdout.write(self.style.WARNING(f'测试模式: 随机采样 {len(df)} 条记录'))
+
+            # 检查数据集类型
+            if 'anime_id' in df.columns and 'name' in df.columns:
+                # 动漫元数据
+                self._import_kaggle_animes(df, batch_size)
+            elif 'user_id' in df.columns and 'anime_id' in df.columns and 'rating' in df.columns:
+                # 评分数据
+                self._import_kaggle_ratings(df, batch_size)
+            else:
+                self.stderr.write(self.style.ERROR('无法识别Kaggle数据集格式'))
+
+        except Exception as e:
+            self.stderr.write(self.style.ERROR(f'导入Kaggle数据集时出错: {str(e)}'))
+            logger.exception('Kaggle导入异常')
+
+    def _import_movies(self, movies_df, batch_size):
+        """导入电影/动漫元数据"""
+        self.stdout.write(self.style.WARNING(f'开始导入 {len(movies_df)} 部电影/动漫...'))
+
+        # 获取或创建默认类型
+        default_type, _ = AnimeType.objects.get_or_create(
+            name='未分类',
+            defaults={'description': '从MovieLens导入的作品'}
+        )
+
+        # 准备批量创建
+        animes_to_create = []
+        existing_count = 0
+        created_count = 0
+
+        # 处理每部电影
+        for _, row in movies_df.iterrows():
+            # 从类型中提取一个作为主类型
+            if 'genres' in row:
+                genres = row['genres'].split('|')
+                if genres and genres[0] != '(no genres listed)':
+                    anime_type, _ = AnimeType.objects.get_or_create(
+                        name=genres[0],
+                        defaults={'description': f'MovieLens类型: {genres[0]}'}
+                    )
+                else:
+                    anime_type = default_type
+            else:
+                anime_type = default_type
+
+            # 检查是否已存在
+            existing = Anime.objects.filter(title=row['title']).first()
+            if existing:
+                existing_count += 1
+                continue
+
+            # 创建新动漫记录
+            # 电影ID作为外部引用存储
+            anime = Anime(
+                title=row['title'],
+                description=f"从MovieLens导入的电影。ID: {row['movieId']}",
+                type=anime_type,
+                release_date=timezone.now().date(),  # 默认为当前日期
+                episodes=1,  # 电影默认为1集
+                is_completed=True,
+                is_featured=False
+            )
+            animes_to_create.append(anime)
+            created_count += 1
+
+            # 批量创建
+            if len(animes_to_create) >= batch_size:
+                Anime.objects.bulk_create(animes_to_create)
+                self.stdout.write(self.style.SUCCESS(
+                    f'已导入 {created_count} 部作品，跳过 {existing_count} 部已存在作品'))
+                animes_to_create = []
+
+        # 处理剩余项
+        if animes_to_create:
+            Anime.objects.bulk_create(animes_to_create)
+
+        self.stdout.write(self.style.SUCCESS(
+            f'导入完成! 创建了 {created_count} 部新作品，跳过 {existing_count} 部已存在作品'))
+
+    def _import_kaggle_animes(self, animes_df, batch_size):
+        """导入Kaggle动漫数据集中的动漫信息"""
+        #animes_df = pd.read_csv(r'D:\dmos\archive\anime.csv')
+        self.stdout.write(self.style.WARNING(f'开始导入 {len(animes_df)} 部Kaggle动漫...'))
+
+        # 获取或创建默认类型
+        default_type, _ = AnimeType.objects.get_or_create(
+            name='动画',
+            defaults={'description': '从Kaggle数据集导入的动漫'}
+        )
+
+        # 准备批量创建
+        animes_to_create = []
+        existing_count = 0
+        created_count = 0
+
+        # 处理每部动漫
+        for _, row in animes_df.iterrows():
+            # 检查是否已存在
+            external_id = int(row['anime_id']) if pd.notna(row['anime_id']) else 0
+            title = row['name'] if pd.notna(row['name']) else f"未命名动漫_{external_id}"
+
+            existing = Anime.objects.filter(title=title).first()
+            if existing:
+                existing_count += 1
+                continue
+
+            # 设置类型
+            anime_type = default_type
+            if 'type' in row and pd.notna(row['type']):
+                anime_type, _ = AnimeType.objects.get_or_create(
+                    name=row['type'],
+                    defaults={'description': f'Kaggle类型: {row["type"]}'}
+                )
+
+            # 解析发布日期
+            release_date = timezone.now().date()
+
+            # 安全解析episodes字段
+            episodes = 1  # 默认值
+            if 'episodes' in row and pd.notna(row['episodes']):
+                try:
+                    # 处理可能的字符串值如 'Unknown'
+                    if isinstance(row['episodes'], str):
+                        if row['episodes'].isdigit():
+                            episodes = int(row['episodes'])
+                        # 否则使用默认值1
+                    else:
+                        # 尝试直接转换
+                        episodes = int(row['episodes'])
+                except (ValueError, TypeError):
+                    # 任何转换错误都使用默认值
+                    episodes = 1
+
+            # 创建新动漫记录
+            anime = Anime(
+                title=title,
+                original_title=row.get('japanese_name', '') if pd.notna(row.get('japanese_name', '')) else '',
+                description=row.get('synopsis', f'从Kaggle导入的动漫。ID: {external_id}') if pd.notna(
+                    row.get('synopsis', '')) else f'从Kaggle导入的动漫。ID: {external_id}',
+                type=anime_type,
+                release_date=release_date,
+                episodes=episodes,
+                is_completed=True,
+                is_featured=False,
+                popularity=float(row.get('popularity', 0)) / 5000.0 if pd.notna(row.get('popularity', 0)) else 0,
+                rating_avg=float(row.get('score', 0)) if pd.notna(row.get('score', 0)) else 0,
+                rating_count=int(row.get('scored_by', 0)) if pd.notna(row.get('scored_by', 0)) else 0
+            )
+
+            # 关键修复: 生成唯一的slug值 - 模拟模型save()方法中的逻辑
+            from django.utils.text import slugify
+            import uuid
+
+            # 基础slug生成
+            base_slug = slugify(title) if title else 'anime'
+
+            # 如果slugify结果为空（纯中文等情况）
+            if not base_slug or base_slug == 'anime':
+                # 使用标题的哈希作为备选
+                import hashlib
+                title_hash = hashlib.md5(title.encode('utf-8')).hexdigest()[:8]
+                base_slug = f"anime-{title_hash}"
+
+            # 为确保唯一性，添加UUID
+            anime_uuid = uuid.uuid4()
+            uuid_hex = str(anime_uuid).replace('-', '')[:8]
+            anime.slug = f"{base_slug}-{uuid_hex}"
+
+            animes_to_create.append(anime)
+            created_count += 1
+
+            # 批量创建
+            if len(animes_to_create) >= batch_size:
+                try:
+                    Anime.objects.bulk_create(animes_to_create)
+                    self.stdout.write(self.style.SUCCESS(
+                        f'已导入 {created_count} 部动漫，跳过 {existing_count} 部已存在动漫'))
+                    animes_to_create = []
+                except Exception as e:
+                    self.stderr.write(self.style.ERROR(f'批量创建失败: {str(e)}'))
+                    # 这里可以考虑改为单条插入进行降级处理
+                    animes_to_create = []
+
+        # 处理剩余项
+        if animes_to_create:
+            try:
+                Anime.objects.bulk_create(animes_to_create)
+            except Exception as e:
+                self.stderr.write(self.style.ERROR(f'批量创建剩余项失败: {str(e)}'))
+                # 单条降级插入作为后备
+                for anime in animes_to_create:
+                    try:
+                        anime.save()
+                    except Exception as inner_e:
+                        self.stderr.write(self.style.ERROR(f'单条创建失败, ID: {anime.title}, 错误: {str(inner_e)}'))
+
+        self.stdout.write(self.style.SUCCESS(
+            f'导入完成! 创建了 {created_count} 部新动漫，跳过 {existing_count} 部已存在动漫'))
+
+    def _import_ratings(self, ratings_df, movies_df, batch_size):
+        """导入用户评分数据"""
+        self.stdout.write(self.style.WARNING(f'开始导入 {len(ratings_df)} 条评分记录...'))
+
+        # 创建评分用户 - 生成虚拟用户
+        user_map = {}  # 外部用户ID到内部用户ID的映射
+
+        # 获取所有不同的用户ID
+        unique_user_ids = ratings_df['userId'].unique()
+        self.stdout.write(self.style.WARNING(f'数据集包含 {len(unique_user_ids)} 个不同用户'))
+
+        with transaction.atomic():
+            # 为每个外部用户ID创建一个对应的内部用户
+            for ext_user_id in unique_user_ids:
+                username = f"ml_user_{ext_user_id}"
+
+                # 检查用户是否已存在
+                existing = User.objects.filter(username=username).first()
+                if existing:
+                    user_map[ext_user_id] = existing.id
+                    continue
+
+                # 创建新用户
+                user = User.objects.create_user(
+                    username=username,
+                    email=f"ml_user_{ext_user_id}@example.com",
+                    password="movielenspwd"  # 设置一个默认密码
+                )
+                user_map[ext_user_id] = user.id
+
+        # 创建电影ID到动漫ID的映射
+        movie_map = {}  # 外部电影ID到内部动漫ID的映射
+
+        # 如果有电影元数据，使用标题匹配
+        if movies_df is not None:
+            movie_title_map = dict(zip(movies_df['movieId'], movies_df['title']))
+            for ext_movie_id, title in movie_title_map.items():
+                anime = Anime.objects.filter(title=title).first()
+                if anime:
+                    movie_map[ext_movie_id] = anime.id
+
+        # 如果没有找到映射，尝试使用外部ID直接匹配
+        missing_movies = set(ratings_df['movieId'].unique()) - set(movie_map.keys())
+        if missing_movies:
+            self.stdout.write(self.style.WARNING(
+                f'尝试为 {len(missing_movies)} 部未找到映射的电影创建新记录...'))
+
+            # 获取或创建默认类型
+            default_type, _ = AnimeType.objects.get_or_create(
+                name='未分类',
+                defaults={'description': '从MovieLens导入的作品'}
+            )
+
+            # 为每个缺失的电影创建新记录
+            animes_to_create = []
+            for ext_movie_id in missing_movies:
+                anime = Anime(
+                    title=f"MovieLens电影 #{ext_movie_id}",
+                    description=f"从MovieLens导入的电影。ID: {ext_movie_id}",
+                    type=default_type,
+                    release_date=timezone.now().date(),
+                    episodes=1,
+                    is_completed=True,
+                    is_featured=False
+                )
+                animes_to_create.append(anime)
+
+            # 批量创建
+            created_animes = Anime.objects.bulk_create(animes_to_create)
+
+            # 更新映射
+            for i, ext_movie_id in enumerate(missing_movies):
+                movie_map[ext_movie_id] = created_animes[i].id
+
+        # 开始导入评分
+        ratings_to_create = []
+        skipped_count = 0
+        created_count = 0
+
+        for _, row in ratings_df.iterrows():
+            ext_user_id = row['userId']
+            ext_movie_id = row['movieId']
+            rating_value = float(row['rating'])
+
+            # 检查是否有映射
+            if ext_user_id not in user_map or ext_movie_id not in movie_map:
+                skipped_count += 1
+                continue
+
+            user_id = user_map[ext_user_id]
+            anime_id = movie_map[ext_movie_id]
+
+            # 检查评分是否已存在
+            if UserRating.objects.filter(user_id=user_id, anime_id=anime_id).exists():
+                skipped_count += 1
+                continue
+
+            # 创建新评分
+            rating = UserRating(
+                user_id=user_id,
+                anime_id=anime_id,
+                rating=rating_value,
+                timestamp=timezone.now()
+            )
+            ratings_to_create.append(rating)
+            created_count += 1
+
+            # 批量创建
+            if len(ratings_to_create) >= batch_size:
+                UserRating.objects.bulk_create(ratings_to_create)
+                self.stdout.write(self.style.SUCCESS(
+                    f'已导入 {created_count} 条评分，跳过 {skipped_count} 条'))
+                ratings_to_create = []
+
+        # 处理剩余项
+        if ratings_to_create:
+            UserRating.objects.bulk_create(ratings_to_create)
+
+        self.stdout.write(self.style.SUCCESS(
+            f'评分导入完成! 创建了 {created_count} 条新评分，跳过 {skipped_count} 条'))
+
+    def _import_kaggle_ratings(self, ratings_df, batch_size):
+        """导入Kaggle动漫数据集中的评分数据"""
+        self.stdout.write(self.style.WARNING(f'开始导入 {len(ratings_df)} 条Kaggle评分记录...'))
+
+        # 创建评分用户 - 生成虚拟用户
+        user_map = {}  # 外部用户ID到内部用户ID的映射
+        #ratings_df = pd.read_csv(r'D:\dmos\archive\rating.csv')
+        # 获取所有不同的用户ID
+        unique_user_ids = ratings_df['user_id'].unique()
+        self.stdout.write(self.style.WARNING(f'数据集包含 {len(unique_user_ids)} 个不同用户'))
+
+        # 对用户进行采样处理，避免创建过多用户
+        if len(unique_user_ids) > 1000:
+            import random
+            unique_user_ids = random.sample(list(unique_user_ids), 1000)
+            self.stdout.write(self.style.WARNING(f'用户数量过多，随机采样1000个用户'))
+
+        with transaction.atomic():
+            # 为每个外部用户ID创建一个对应的内部用户
+            for ext_user_id in unique_user_ids:
+                username = f"kaggle_user_{ext_user_id}"
+
+                # 检查用户是否已存在
+                existing = User.objects.filter(username=username).first()
+                if existing:
+                    user_map[ext_user_id] = existing.id
+                    continue
+
+                # 创建新用户
+                user = User.objects.create_user(
+                    username=username,
+                    email=f"kaggle_user_{ext_user_id}@example.com",
+                    password="kagglepwd"  # 设置一个默认密码
+                )
+                user_map[ext_user_id] = user.id
+
+        # 获取动漫ID映射
+        anime_map = {}  # 外部动漫ID到内部动漫ID的映射
+        all_animes = Anime.objects.all()
+        for anime in all_animes:
+            # 尝试从描述中提取外部ID
+            if "ID:" in anime.description:
+                try:
+                    ext_id = int(anime.description.split("ID:")[1].strip().split()[0])
+                    anime_map[ext_id] = anime.id
+                except:
+                    pass
+
+        self.stdout.write(self.style.WARNING(f'找到 {len(anime_map)} 个动漫ID映射'))
+
+        # 开始导入评分
+        ratings_to_create = []
+        skipped_count = 0
+        created_count = 0
+
+        for _, row in ratings_df.iterrows():
+            ext_user_id = row['user_id']
+            ext_anime_id = row['anime_id']
+
+            # 处理-1评分（表示用户想看但没有评分）
+            if row['rating'] == -1:
+                rating_value = 0
+            else:
+                # Kaggle数据集通常为1-10分制，转换为1-5分制
+                rating_value = float(row['rating']) / 2.0
+                if rating_value > 5:
+                    rating_value = 5.0
+                elif rating_value < 1:
+                    rating_value = 1.0
+
+            # 检查是否有映射
+            if ext_user_id not in user_map or ext_anime_id not in anime_map:
+                skipped_count += 1
+                continue
+
+            user_id = user_map[ext_user_id]
+            anime_id = anime_map[ext_anime_id]
+
+            # 检查评分是否已存在
+            if UserRating.objects.filter(user_id=user_id, anime_id=anime_id).exists():
+                skipped_count += 1
+                continue
+
+            # 创建新评分，但跳过rating_value为0的记录
+            if rating_value > 0:
+                rating = UserRating(
+                    user_id=user_id,
+                    anime_id=anime_id,
+                    rating=rating_value,
+                    timestamp=timezone.now()
+                )
+                ratings_to_create.append(rating)
+                created_count += 1
+            else:
+                skipped_count += 1
+
+            # 批量创建
+            if len(ratings_to_create) >= batch_size:
+                UserRating.objects.bulk_create(ratings_to_create)
+                self.stdout.write(self.style.SUCCESS(
+                    f'已导入 {created_count} 条评分，跳过 {skipped_count} 条'))
+                ratings_to_create = []
+
+        # 处理剩余项
+        if ratings_to_create:
+            UserRating.objects.bulk_create(ratings_to_create)
+
+        self.stdout.write(self.style.SUCCESS(
+            f'Kaggle评分导入完成! 创建了 {created_count} 条新评分，跳过 {skipped_count} 条'))

@@ -17,15 +17,11 @@ urlpatterns = [
     # 评论回复API
     path('comments/reply/<int:comment_id>/', views.add_comment_reply, name='add_comment_reply'),
     path('comments/replies/<int:comment_id>/', views.get_comment_replies, name='get_comment_replies'),
-    # 互动可视化API
-    path('api/visualization/interaction-stats/', views.visualization_interaction_stats, name='visualization_interaction_stats'),
-    path('api/visualization/user-network/', views.visualization_user_network, name='visualization_user_network'),
-    path('api/visualization/interaction-timeline/', views.visualization_interaction_timeline, name='visualization_interaction_timeline'),
     # 用户互动统计
     path('api/interactions/summary/', views.user_interaction_summary, name='user_interaction_summary'),
     path('api/interactions/recent/', views.recent_interactions, name='recent_interactions'),
     path('api/interactions/top-users/', views.top_interactive_users, name='top_interactive_users'),
-
+    path('api/interactions/detail/<int:interaction_id>/', views.interaction_detail, name='interaction_detail'),
     # 用户仪表板
     path('dashboard/', views.user_activity_dashboard, name='user_dashboard'),
     # 仪表板API端点
@@ -51,23 +47,14 @@ urlpatterns = [
 
     # 心形评分系统API
     path('heart-rating/<int:anime_id>/', views.heart_rating, name='heart_rating'),
-    # 新增 - 数据可视化API端点
-    path('api/visualization/user-activity/', views.visualization_user_activity, name='visualization_user_activity'),
-    path('api/visualization/genre-preference/', views.visualization_genre_preference,
-         name='visualization_genre_preference'),
-    path('api/visualization/rating-distribution/', views.visualization_rating_distribution,
-         name='visualization_rating_distribution'),
-    path('api/visualization/viewing-trends/', views.visualization_viewing_trends, name='visualization_viewing_trends'),
-
-    path('api/visualization/genre-heatmap/', views.visualization_genre_heatmap, name='visualization_genre_heatmap'),
 
     path('user-ratings/', views.user_ratings, name='user_ratings'),
     path('api/dashboard/likes/', views.dashboard_likes_api, name='dashboard_likes_api'),
     path('anime/like/<int:anime_id>/', views.toggle_anime_like, name='toggle_anime_like'),
-    path('api/visualization/likes-analysis/', views.visualization_likes_analysis, name='visualization_likes_analysis'),
     # 添加到recommendation/urls.py的urlpatterns列表
     path('api/dashboard/seasonal/', views.dashboard_seasonal_api, name='dashboard_seasonal_api'),
     path('api/dashboard/similar/', views.dashboard_similar_api, name='dashboard_similar_api'),
     path('api/dashboard/classics/', views.dashboard_classics_api, name='dashboard_classics_api'),
     path('user-likes/', views.user_likes, name='user_likes'),
+
 ]

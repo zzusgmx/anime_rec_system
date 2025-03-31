@@ -1,0 +1,360 @@
+/* 量子级可视化仪表盘样式 */
+
+:root {
+  --quantum-primary: #6d28d9;
+  --quantum-primary-light: #8b5cf6;
+  --quantum-secondary: #10b981;
+  --quantum-accent: #f97316;
+  --quantum-danger: #ef4444;
+  --quantum-info: #3b82f6;
+  --quantum-warning: #f59e0b;
+  --quantum-success: #10b981;
+  --quantum-dark: #1e293b;
+  --quantum-light: #f8fafc;
+  --quantum-gray: #64748b;
+  --quantum-gray-light: #e2e8f0;
+  --quantum-tooltip-bg: rgba(15, 23, 42, 0.9);
+}
+
+/* 主题类 */
+[data-theme="quantum"] {
+  --theme-primary: var(--quantum-primary);
+  --theme-primary-light: var(--quantum-primary-light);
+  --theme-secondary: var(--quantum-secondary);
+  --theme-accent: var(--quantum-accent);
+  --theme-bg: var(--quantum-light);
+  --theme-text: var(--quantum-dark);
+  --theme-grid: var(--quantum-gray-light);
+}
+
+[data-theme="dark"] {
+  --theme-primary: var(--quantum-primary-light);
+  --theme-primary-light: var(--quantum-primary);
+  --theme-secondary: var(--quantum-info);
+  --theme-accent: var(--quantum-warning);
+  --theme-bg: var(--quantum-dark);
+  --theme-text: var(--quantum-light);
+  --theme-grid: #334155;
+}
+
+[data-theme="pastel"] {
+  --theme-primary: #c084fc;
+  --theme-primary-light: #d8b4fe;
+  --theme-secondary: #86efac;
+  --theme-accent: #fdba74;
+  --theme-bg: #ffffff;
+  --theme-text: #334155;
+  --theme-grid: #f1f5f9;
+}
+
+/* 仪表盘容器 */
+.quantum-dashboard {
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
+  min-height: 100vh;
+  transition: background-color 0.3s ease;
+}
+
+/* 卡片样式 */
+.quantum-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  padding: 1.5rem;
+  height: 100%;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.quantum-card:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.quantum-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, var(--theme-primary), var(--theme-primary-light));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.quantum-card:hover::before {
+  opacity: 1;
+}
+
+.quantum-card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.quantum-card-title i {
+  color: var(--theme-primary);
+  margin-right: 8px;
+}
+
+.quantum-card-content {
+  height: calc(100% - 40px);
+  position: relative;
+}
+
+/* 加载动画 */
+.quantum-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: var(--theme-primary);
+  animation: spin 1s ease-in-out infinite;
+  margin: 0 auto;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  height: 100%;
+}
+
+/* 错误状态 */
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  height: 100%;
+}
+
+.error-icon {
+  font-size: 2rem;
+  color: var(--quantum-warning);
+  margin-bottom: 1rem;
+}
+
+/* 仪表盘控制面板 */
+.dashboard-controls {
+  margin-bottom: 2rem;
+  background: white;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-controls-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.theme-selector {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  margin-right: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  border: 2px solid transparent;
+}
+
+.theme-selector:hover {
+  transform: translateY(-2px);
+}
+
+.theme-selector.active {
+  border-color: var(--theme-primary);
+}
+
+.theme-selector::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: white;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.theme-selector.active::after {
+  opacity: 1;
+}
+
+.quantum-theme {
+  background: linear-gradient(135deg, #6d28d9, #8b5cf6, #10b981);
+}
+
+.dark-theme {
+  background: linear-gradient(135deg, #1e293b, #334155, #475569);
+}
+
+.pastel-theme {
+  background: linear-gradient(135deg, #c084fc, #93c5fd, #86efac);
+}
+
+/* 图表容器 */
+.chart-container {
+  width: 100%;
+  height: 300px;
+  position: relative;
+}
+
+/* 网络图样式 */
+.network-svg {
+  background-color: transparent;
+  border-radius: 8px;
+}
+
+.network-container .links line {
+  stroke-opacity: 0.6;
+}
+
+.network-container .nodes circle {
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.network-container .nodes circle:hover {
+  stroke-width: 2;
+  stroke: var(--theme-primary);
+}
+
+.network-container .labels text {
+  font-size: 10px;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 旅程时间线样式 */
+.timeline-svg {
+  background-color: transparent;
+  border-radius: 8px;
+}
+
+.timeline-container .journey-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.timeline-container .events circle {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.timeline-container .events circle:hover {
+  stroke-width: 2;
+  stroke: var(--theme-primary);
+  transform: scale(1.2);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .quantum-card {
+    margin-bottom: 1rem;
+  }
+
+  .chart-container {
+    height: 250px;
+  }
+
+  .dashboard-controls {
+    padding: 0.8rem;
+  }
+
+  .theme-selector {
+    width: 30px;
+    height: 30px;
+  }
+}
+
+/* 卡片操作按钮 */
+.card-actions {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 10;
+}
+
+.card-action-btn {
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--theme-text);
+  margin-left: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.card-action-btn:hover {
+  background: var(--theme-primary);
+  color: white;
+  transform: scale(1.1);
+}
+
+/* 导出菜单 */
+.export-menu {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 0.5rem;
+  z-index: 100;
+  min-width: 120px;
+  display: none;
+}
+
+.export-menu.show {
+  display: block;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.export-menu-item {
+  padding: 0.5rem 0.8rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+}
+
+.export-menu-item:hover {
+  background: #f8fafc;
+}
+
+.export-menu-item i {
+  margin-right: 8px;
+  width: 16px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

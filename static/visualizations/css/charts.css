@@ -1,0 +1,262 @@
+/* 量子级图表样式 */
+
+/* SVG基础样式 */
+svg {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  shape-rendering: geometricPrecision;
+}
+
+/* 坐标轴样式 */
+.axis path,
+.axis line {
+  stroke: var(--theme-grid);
+  shape-rendering: crispEdges;
+}
+
+.axis text {
+  fill: var(--theme-text);
+  font-size: 12px;
+}
+
+/* 图表类型通用样式 */
+
+/* 折线图样式 */
+.line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.area {
+  opacity: 0.2;
+}
+
+.dot {
+  stroke-width: 1.5px;
+  transition: all 0.3s ease;
+}
+
+.dot:hover {
+  stroke-width: 2px;
+  r: 7;
+  transform: scale(1.2);
+}
+
+/* 柱状图样式 */
+.bar {
+  transition: all 0.3s ease;
+}
+
+.bar:hover {
+  opacity: 0.8;
+}
+
+/* 饼图样式 */
+.slice {
+  transition: all 0.3s ease;
+}
+
+.slice:hover {
+  transform: scale(1.05);
+  transform-origin: center;
+}
+
+.slice-label {
+  font-size: 12px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+/* 热力图样式 */
+.heatmap-cell {
+  stroke: white;
+  stroke-width: 0.5;
+  transition: all 0.3s ease;
+}
+
+.heatmap-cell:hover {
+  stroke-width: 1.5;
+  stroke: var(--theme-primary);
+}
+
+/* 散点图样式 */
+.scatter-dot {
+  transition: all 0.3s ease;
+}
+
+.scatter-dot:hover {
+  r: 8;
+  stroke-width: 2;
+}
+
+/* 图例样式 */
+.legend {
+  font-size: 12px;
+}
+
+.legend-item {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.legend-item:hover {
+  opacity: 0.8;
+}
+
+.legend-item.disabled {
+  opacity: 0.3;
+}
+
+/* 网格线样式 */
+.grid line {
+  stroke: var(--theme-grid);
+  stroke-opacity: 0.3;
+  shape-rendering: crispEdges;
+}
+
+.grid path {
+  stroke-width: 0;
+}
+
+/* 工具提示样式 */
+.d3-tooltip {
+  position: absolute;
+  padding: 8px 12px;
+  background: var(--quantum-tooltip-bg);
+  color: white;
+  border-radius: 6px;
+  font-size: 12px;
+  pointer-events: none;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  max-width: 240px;
+}
+
+.d3-tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid var(--quantum-tooltip-bg);
+}
+
+/* 量子主题特定样式 */
+[data-theme="quantum"] .line {
+  stroke: var(--quantum-primary);
+}
+
+[data-theme="quantum"] .area {
+  fill: var(--quantum-primary);
+}
+
+[data-theme="dark"] .line {
+  stroke: var(--quantum-primary-light);
+}
+
+[data-theme="dark"] .area {
+  fill: var(--quantum-primary-light);
+}
+
+[data-theme="pastel"] .line {
+  stroke: #c084fc;
+}
+
+[data-theme="pastel"] .area {
+  fill: #c084fc;
+}
+
+/* 动画效果 */
+.animate-in {
+  animation: fadeInUp 0.5s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 特殊互动效果 */
+.interactive-element {
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.interactive-element:hover {
+  filter: brightness(1.2);
+}
+
+/* 图表缩放控件 */
+.zoom-controls {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.zoom-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: white;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 5px;
+  cursor: pointer;
+  color: var(--theme-text);
+  transition: all 0.2s ease;
+}
+
+.zoom-btn:hover {
+  background: var(--theme-primary);
+  color: white;
+  transform: scale(1.1);
+}
+
+/* 图表滚动提示 */
+.scroll-hint {
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--theme-text);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* 空状态样式 */
+.empty-chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 2rem;
+}
+
+.empty-chart-icon {
+  font-size: 2.5rem;
+  color: var(--theme-grid);
+  margin-bottom: 1rem;
+}
+
+.empty-chart-text {
+  color: var(--theme-gray);
+  text-align: center;
+}

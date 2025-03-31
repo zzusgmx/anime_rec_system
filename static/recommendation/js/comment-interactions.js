@@ -134,66 +134,63 @@ class CommentInteractionManager {
   }
 
   // 切换评论点赞状态
-  async toggleLike(commentId, button) {
-    if (!commentId || !button) return;
+async toggleLike(commentId, button) {
+  if (!commentId || !button) return;
 
-    try {
-      // 添加临时状态
-      const wasActive = button.classList.contains('active');
-      const likeCountElement = button.querySelector('.like-count');
-      const currentCount = parseInt(likeCountElement.textContent);
+  try {
+    // 获取当前状态
+    const wasActive = button.classList.contains('active');
+    const likeCountElement = button.querySelector('.like-count');
+    const currentCount = parseInt(likeCountElement.textContent);
 
-      // 立即更新UI (乐观更新)
-      button.classList.toggle('active');
-      button.querySelector('i').classList.toggle('far');
-      button.querySelector('i').classList.toggle('fas');
+    // 仅更新按钮外观，不立即更新计数
+    button.classList.toggle('active');
+    button.querySelector('i').classList.toggle('far');
+    button.querySelector('i').classList.toggle('fas');
 
-      if (wasActive) {
-        likeCountElement.textContent = Math.max(0, currentCount - 1);
-      } else {
-        likeCountElement.textContent = currentCount + 1;
-        // 添加心跳动画
-        button.querySelector('i').classList.add('heartBeat');
-        setTimeout(() => {
-          button.querySelector('i').classList.remove('heartBeat');
-        }, 1000);
-      }
-
-      // 发送请求
-      const response = await fetch(`${this.apiEndpoints.toggleLike}${commentId}/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': this.getCsrfToken()
-        },
-        credentials: 'same-origin'
-      });
-
-      if (!response.ok) {
-        throw new Error('点赞请求失败');
-      }
-
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || '点赞操作失败');
-      }
-
-      // 使用服务器返回的实际值更新UI
-      likeCountElement.textContent = data.like_count;
-
-    } catch (error) {
-      console.error('[QUANTUM-COMMENT] 点赞操作失败:', error);
-
-      // 回滚UI
-      button.classList.toggle('active');
-      button.querySelector('i').classList.toggle('far');
-      button.querySelector('i').classList.toggle('fas');
-
-      // 显示错误通知
-      this.showNotification('点赞操作失败，请稍后再试', 'error');
+    // 如果是点赞（不是取消点赞），添加动画效果
+    if (!wasActive) {
+      button.querySelector('i').classList.add('heartBeat');
+      setTimeout(() => {
+        button.querySelector('i').classList.remove('heartBeat');
+      }, 1000);
     }
+
+    // 发送请求
+    const response = await fetch(`${this.apiEndpoints.toggleLike}${commentId}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': this.getCsrfToken()
+      },
+      credentials: 'same-origin'
+    });
+
+    if (!response.ok) {
+      throw new Error('点赞请求失败');
+    }
+
+    const data = await response.json();
+
+    if (!data.success) {
+      throw new Error(data.error || '点赞操作失败');
+    }
+
+    // 只使用服务器返回的实际值更新UI
+    likeCountElement.textContent = data.like_count;
+
+  } catch (error) {
+    console.error('[QUANTUM-COMMENT] 点赞操作失败:', error);
+
+    // 回滚UI
+    button.classList.toggle('active');
+    button.querySelector('i').classList.toggle('far');
+    button.querySelector('i').classList.toggle('fas');
+
+    // 显示错误通知
+    this.showNotification('点赞操作失败，请稍后再试', 'error');
   }
+}
 
   // 显示回复表单
   showReplyForm(commentId, username) {

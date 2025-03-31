@@ -1,0 +1,388 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}数据可视化仪表盘 - 量子级动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'visualizations/css/data-dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'visualizations/css/charts.css' %}">
+{% endblock %}
+
+{% block content %}
+<!-- CSRF Token -->
+{% csrf_token %}
+
+<div class="quantum-dashboard" data-theme="{{ preferences.theme|default:'quantum' }}">
+  <div class="container py-4">
+    <!-- 标题区域 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h1 class="mb-1">数据可视化仪表盘</h1>
+        <p class="text-muted">探索您的动漫偏好和推荐洞察</p>
+      </div>
+
+      <!-- 仪表盘工具栏 -->
+      <div class="d-flex align-items-center">
+        <div class="dropdown me-2">
+          <button class="btn btn-outline-primary dropdown-toggle" type="button" id="dashboardSelector" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="fas fa-tachometer-alt me-1"></i>
+            {{ dashboard.name }}
+          </button>
+          <ul class="dropdown-menu" aria-labelledby="dashboardSelector">
+            {% for dash in other_dashboards %}
+            <li><a class="dropdown-item" href="{% url 'visualizations:dashboard' %}?dashboard_id={{ dash.id }}">{{ dash.name }}</a></li>
+            {% endfor %}
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#newDashboardModal">
+              <i class="fas fa-plus me-1"></i>新建仪表盘
+            </a></li>
+          </ul>
+        </div>
+        <div class="btn-group" role="group">
+          <button id="saveDashboard" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i>保存
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 仪表盘设置面板 -->
+    <div class="dashboard-controls mb-4">
+      <div class="row align-items-center">
+        <div class="col-md-6">
+          <div class="dashboard-controls-title">仪表盘设置</div>
+          <div class="input-group">
+            <span class="input-group-text"><i class="fas fa-tag"></i></span>
+            <input type="text" class="form-control" id="dashboardName" value="{{ dashboard.name }}" placeholder="仪表盘名称">
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="d-flex align-items-center justify-content-md-end mt-3 mt-md-0">
+            <span class="me-2">主题:</span>
+            <div class="theme-selector quantum-theme {% if preferences.theme == 'quantum' or not preferences.theme %}active{% endif %}" data-theme="quantum"></div>
+            <div class="theme-selector dark-theme {% if preferences.theme == 'dark' %}active{% endif %}" data-theme="dark"></div>
+            <div class="theme-selector pastel-theme {% if preferences.theme == 'pastel' %}active{% endif %}" data-theme="pastel"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 仪表盘内容 -->
+    <div id="dashboard" data-dashboard-id="{{ dashboard.id }}" data-dashboard-name="{{ dashboard.name }}">
+      <div class="row">
+        <!-- 评分分布卡片 -->
+        <div class="col-md-6 mb-4">
+          <div class="quantum-card">
+            <div class="quantum-card-title">
+              <span><i class="fas fa-chart-bar"></i>评分分布</span>
+              <div class="card-actions">
+                <button class="card-action-btn export-toggle" title="导出" data-chart-type="rating_distribution">
+                  <i class="fas fa-download"></i>
+                </button>
+              </div>
+            </div>
+            <div class="quantum-card-content">
+              <div id="rating_distribution-chart" class="chart-container"></div>
+            </div>
+            <!-- 导出菜单 -->
+            <div class="export-menu">
+              <div class="export-menu-item export-chart" data-chart-type="rating_distribution" data-format="png">
+                <i class="fas fa-file-image"></i>导出PNG
+              </div>
+              <div class="export-menu-item export-chart" data-chart-type="rating_distribution" data-format="svg">
+                <i class="fas fa-file-code"></i>导出SVG
+              </div>
+              <div class="export-menu-item export-chart" data-chart-type="rating_distribution" data-format="json">
+                <i class="fas fa-file-code"></i>导出数据
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 观看趋势卡片 -->
+        <div class="col-md-6 mb-4">
+          <div class="quantum-card">
+            <div class="quantum-card-title">
+              <span><i class="fas fa-chart-line"></i>观看趋势</span>
+              <div class="card-actions">
+                <button class="card-action-btn export-toggle" title="导出" data-chart-type="viewing_trends">
+                  <i class="fas fa-download"></i>
+                </button>
+              </div>
+            </div>
+            <div class="quantum-card-content">
+              <div id="viewing_trends-chart" class="chart-container"></div>
+            </div>
+            <!-- 导出菜单 -->
+            <div class="export-menu">
+              <div class="export-menu-item export-chart" data-chart-type="viewing_trends" data-format="png">
+                <i class="fas fa-file-image"></i>导出PNG
+              </div>
+              <div class="export-menu-item export-chart" data-chart-type="viewing_trends" data-format="svg">
+                <i class="fas fa-file-code"></i>导出SVG
+              </div>
+              <div class="export-menu-item export-chart" data-chart-type="viewing_trends" data-format="json">
+                <i class="fas fa-file-code"></i>导出数据
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 类型偏好卡片 -->
+        <div class="col-md-6 mb-4">
+          <div class="quantum-card">
+            <div class="quantum-card-title">
+              <span><i class="fas fa-tags"></i>类型偏好</span>
+              <div class="card-actions">
+                <button class="card-action-btn export-toggle" title="导出" data-chart-type="genre_preference">
+                  <i class="fas fa-download"></i>
+                </button>
+              </div>
+            </div>
+            <div class="quantum-card-content">
+              <div id="genre_preference-chart" class="chart-container"></div>
+            </div>
+            <!-- 导出菜单 -->
+            <div class="export-menu">
+              <div class="export-menu-item export-chart" data-chart-type="genre_preference" data-format="png">
+                <i class="fas fa-file-image"></i>导出PNG
+              </div>
+              <div class="export-menu-item export-chart" data-chart-type="genre_preference" data-format="svg">
+                <i class="fas fa-file-code"></i>导出SVG
+              </div>
+              <div class="export-menu-item export-chart" data-chart-type="genre_preference" data-format="json">
+                <i class="fas fa-file-code"></i>导出数据
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 活动摘要卡片 -->
+        <div class="col-md-6 mb-4">
+          <div class="quantum-card">
+            <div class="quantum-card-title">
+              <span><i class="fas fa-chart-pie"></i>活动摘要</span>
+              <div class="card-actions">
+                <button class="card-action-btn export-toggle" title="导出" data-chart-type="activity_summary">
+                  <i class="fas fa-download"></i>
+                </button>
+              </div>
+            </div>
+            <div class="quantum-card-content">
+              <div id="activity_summary-content" class="chart-container"></div>
+            </div>
+            <!-- 导出菜单 -->
+            <div class="export-menu">
+              <div class="export-menu-item export-chart" data-chart-type="activity_summary" data-format="png">
+                <i class="fas fa-file-image"></i>导出PNG
+              </div>
+              <div class="export-menu-item export-chart" data-chart-type="activity_summary" data-format="svg">
+                <i class="fas fa-file-code"></i>导出SVG
+              </div>
+              <div class="export-menu-item export-chart" data-chart-type="activity_summary" data-format="json">
+                <i class="fas fa-file-code"></i>导出数据
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 更多可视化入口 -->
+      <div class="row">
+        <div class="col-12">
+          <div class="quantum-card">
+            <div class="quantum-card-title">
+              <span><i class="fas fa-th-large"></i>更多可视化</span>
+            </div>
+            <div class="quantum-card-content">
+              <div class="row g-4">
+                <div class="col-md-4">
+                  <a href="{% url 'visualizations:insights' %}" class="text-decoration-none">
+                    <div class="p-4 bg-light rounded text-center h-100 d-flex flex-column align-items-center justify-content-center">
+                      <i class="fas fa-lightbulb text-warning mb-3" style="font-size: 2rem;"></i>
+                      <h5>个人洞察</h5>
+                      <p class="text-muted">探索您的观看模式和偏好洞察</p>
+                    </div>
+                  </a>
+                </div>
+                <div class="col-md-4">
+                  <a href="{% url 'visualizations:community' %}" class="text-decoration-none">
+                    <div class="p-4 bg-light rounded text-center h-100 d-flex flex-column align-items-center justify-content-center">
+                      <i class="fas fa-users text-success mb-3" style="font-size: 2rem;"></i>
+                      <h5>社区分析</h5>
+                      <p class="text-muted">探索用户互动和社区趋势</p>
+                    </div>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 新建仪表盘模态框 -->
+<div class="modal fade" id="newDashboardModal" tabindex="-1" aria-labelledby="newDashboardModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="newDashboardModalLabel">新建仪表盘</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="newDashboardName" class="form-label">仪表盘名称</label>
+          <input type="text" class="form-control" id="newDashboardName" placeholder="输入仪表盘名称">
+        </div>
+        <div class="mb-3">
+          <label for="dashboardTemplate" class="form-label">选择模板</label>
+          <select class="form-select" id="dashboardTemplate">
+            <option value="default" selected>默认模板</option>
+            <option value="minimal">简约模板</option>
+            <option value="advanced">高级分析模板</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" id="createDashboardBtn">创建</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 添加隐藏的布局数据容器 -->
+<script type="application/json" id="dashboard-layout-data">
+{{ dashboard_layout_json|safe }}
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<!-- 确保依赖库加载 -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'visualizations/js/visualization-core.js' %}"></script>
+<script>
+  // 在页面加载完成后执行初始化
+  document.addEventListener('DOMContentLoaded', function() {
+    try {
+      // 获取JSON数据
+      const layoutDataElement = document.getElementById('dashboard-layout-data');
+      if (layoutDataElement) {
+        const layoutJson = layoutDataElement.textContent.trim();
+        console.log('布局数据原始字符串:', layoutJson);
+
+        // 设置全局变量，让可视化核心引擎能够访问到布局数据
+        window.dashboardLayoutData = layoutJson;
+      }
+    } catch (e) {
+      console.error('解析布局数据失败:', e);
+    }
+
+    // 导出菜单切换
+    document.querySelectorAll('.export-toggle').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault(); // 防止按钮点击事件引起页面跳转
+        const chartType = this.dataset.chartType;
+        const menu = this.closest('.quantum-card').querySelector('.export-menu');
+
+        // 关闭所有其他菜单
+        document.querySelectorAll('.export-menu.show').forEach(m => {
+          if (m !== menu) m.classList.remove('show');
+        });
+
+        // 切换当前菜单
+        menu.classList.toggle('show');
+      });
+    });
+
+    // 点击外部关闭菜单
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.export-toggle') && !e.target.closest('.export-menu')) {
+        document.querySelectorAll('.export-menu.show').forEach(menu => {
+          menu.classList.remove('show');
+        });
+      }
+    });
+
+    // 创建新仪表盘
+    const createBtn = document.getElementById('createDashboardBtn');
+    if (createBtn) {
+      createBtn.addEventListener('click', function() {
+        const nameInput = document.getElementById('newDashboardName');
+        const templateSelect = document.getElementById('dashboardTemplate');
+
+        if (!nameInput || !templateSelect) {
+          console.error('找不到必要的表单元素');
+          return;
+        }
+
+        const name = nameInput.value;
+        const template = templateSelect.value;
+
+        if (!name) {
+          alert('请输入仪表盘名称');
+          return;
+        }
+
+        // 获取CSRF token
+        const csrfTokenElement = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (!csrfTokenElement) {
+          console.error('找不到CSRF token元素');
+          return;
+        }
+
+        // 创建仪表盘
+        fetch('{% url "visualizations:save_dashboard" %}', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfTokenElement.value
+          },
+          body: JSON.stringify({
+            name: name,
+            layout: {
+              template: template,
+              widgets: [
+                {id: 'rating_distribution', title: '评分分布', type: 'chart', position: {row: 0, col: 0, width: 6, height: 4}},
+                {id: 'viewing_trends', title: '观看趋势', type: 'chart', position: {row: 0, col: 6, width: 6, height: 4}},
+                {id: 'genre_preference', title: '类型偏好', type: 'chart', position: {row: 4, col: 0, width: 6, height: 4}},
+                {id: 'activity_summary', title: '活动摘要', type: 'stats', position: {row: 4, col: 6, width: 6, height: 4}}
+              ]
+            }
+          })
+        })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (data.success) {
+            // 重新加载页面
+            window.location.href = `{% url 'visualizations:dashboard' %}?dashboard_id=${data.dashboard_id}`;
+          } else {
+            alert('创建仪表盘失败: ' + (data.error || '未知错误'));
+          }
+        })
+        .catch(error => {
+          console.error('创建仪表盘失败:', error);
+          alert('创建仪表盘失败，请稍后再试');
+        });
+
+        // 关闭模态框
+        const modalElement = document.getElementById('newDashboardModal');
+        if (modalElement && typeof bootstrap !== 'undefined') {
+          const modal = bootstrap.Modal.getInstance(modalElement);
+          if (modal) {
+            modal.hide();
+          }
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

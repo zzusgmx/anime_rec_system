@@ -1,0 +1,1219 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}个人数据洞察 - 量子级动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'visualizations/css/data-dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'visualizations/css/charts.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="quantum-dashboard" data-theme="{{ preferences.theme|default:'quantum' }}">
+  <div class="container py-4">
+    <!-- 标题区域 -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h1 class="mb-1">个人数据洞察</h1>
+        <p class="text-muted">探索您的动漫观看习惯和偏好</p>
+      </div>
+
+      <div>
+        <a href="{% url 'visualizations:dashboard' %}" class="btn btn-outline-primary">
+          <i class="fas fa-arrow-left me-1"></i>返回仪表盘
+        </a>
+      </div>
+    </div>
+
+    <!-- 导航标签 -->
+    <ul class="nav nav-pills mb-4">
+      <li class="nav-item">
+        <a class="nav-link active" id="overview-tab" data-bs-toggle="pill" href="#overview">概览</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" id="journey-tab" data-bs-toggle="pill" href="#journey">观看旅程</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" id="recommendations-tab" data-bs-toggle="pill" href="#recommendations">推荐洞察</a>
+      </li>
+    </ul>
+
+    <!-- 标签内容 -->
+    <div class="tab-content">
+      <!-- 概览标签 -->
+      <div class="tab-pane fade show active" id="overview">
+        <div class="row">
+          <!-- 统计卡片 -->
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="quantum-card">
+              <div class="quantum-card-title">
+                <span><i class="fas fa-star"></i>评分总数</span>
+              </div>
+              <div class="quantum-card-content d-flex align-items-center justify-content-center">
+                <div class="text-center">
+                  <div class="display-4 fw-bold">{{ user_stats.rating_count }}</div>
+                  <div class="text-muted">部动漫</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="quantum-card">
+              <div class="quantum-card-title">
+                <span><i class="fas fa-eye"></i>浏览总数</span>
+              </div>
+              <div class="quantum-card-content d-flex align-items-center justify-content-center">
+                <div class="text-center">
+                  <div class="display-4 fw-bold">{{ user_stats.browsing_count }}</div>
+                  <div class="text-muted">次浏览</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="quantum-card">
+              <div class="quantum-card-title">
+                <span><i class="fas fa-comment"></i>评论总数</span>
+              </div>
+              <div class="quantum-card-content d-flex align-items-center justify-content-center">
+                <div class="text-center">
+                  <div class="display-4 fw-bold">{{ user_stats.comment_count }}</div>
+                  <div class="text-muted">条评论</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="quantum-card">
+              <div class="quantum-card-title">
+                <span><i class="fas fa-heart"></i>收藏总数</span>
+              </div>
+              <div class="quantum-card-content d-flex align-items-center justify-content-center">
+                <div class="text-center">
+                  <div class="display-4 fw-bold">{{ user_stats.favorite_count }}</div>
+                  <div class="text-muted">部收藏</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 评分分布图 -->
+          <div class="col-md-6 mb-4">
+            <div class="quantum-card">
+              <div class="quantum-card-title">
+                <span><i class="fas fa-chart-bar"></i>评分分布</span>
+              </div>
+              <div class="quantum-card-content">
+                <div id="rating-distribution-chart" class="chart-container"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 类型偏好图 -->
+          <div class="col-md-6 mb-4">
+            <div class="quantum-card">
+              <div class="quantum-card-title">
+                <span><i class="fas fa-tags"></i>类型偏好</span>
+              </div>
+              <div class="quantum-card-content">
+                <div id="genre-preference-chart" class="chart-container"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 观看旅程标签 -->
+      <div class="tab-pane fade" id="journey">
+        <div class="row">
+          <div class="col-12 mb-4">
+            <div class="quantum-card">
+              <div class="quantum-card-title">
+                <span><i class="fas fa-route"></i>您的动漫旅程</span>
+              </div>
+              <div class="quantum-card-content" style="height: 600px;">
+                <div id="user-journey-timeline" class="w-100 h-100"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 推荐洞察标签 -->
+      <div class="tab-pane fade" id="recommendations">
+        <div class="row">
+          <!-- 推荐因素卡片 -->
+          <div class="col-md-6 mb-4">
+            <div class="quantum-card">
+              <div class="quantum-card-title">
+                <span><i class="fas fa-magic"></i>推荐因素</span>
+              </div>
+              <div class="quantum-card-content">
+                <div id="recommendation-factors-chart" class="chart-container"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 您喜欢的类型 -->
+          <div class="col-md-6 mb-4">
+            <div class="quantum-card">
+              <div class="quantum-card-title">
+                <span><i class="fas fa-thumbs-up"></i>您喜欢的类型</span>
+              </div>
+              <div class="quantum-card-content">
+                <div id="top-genres-chart" class="chart-container"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'visualizations/js/visualization-core.js' %}"></script>
+<script src="{% static 'visualizations/js/user-journey-timeline.js' %}"></script>
+<script src="{% static 'visualizations/js/trend-visualizer.js' %}"></script>
+
+<script>
+  /**
+ * 用户洞察页面脚本
+ * 处理用户数据洞察页面的动态功能和可视化
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    // 获取CSRF Token
+    function getCsrfToken() {
+        const tokenInput = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (tokenInput && tokenInput.value) {
+            return tokenInput.value;
+        }
+
+        const tokenCookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+        if (tokenCookie) {
+            return tokenCookie.split('=')[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * 安全地获取DOM元素
+     * @param {string} selector 选择器
+     * @returns {Element} DOM元素或null
+     */
+    function safeGetElement(selector) {
+        try {
+            return document.querySelector(selector);
+        } catch (e) {
+            console.error(`获取元素 ${selector} 失败:`, e);
+            return null;
+        }
+    }
+
+    /**
+     * 显示错误消息
+     * @param {string} containerId 容器ID
+     * @param {string} message 错误消息
+     */
+    function showError(containerId, message) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="alert alert-warning">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-exclamation-triangle me-3" style="font-size: 1.5rem;"></i>
+                    <div>
+                        <h5 class="alert-heading">出现问题</h5>
+                        <p class="mb-0">${message}</p>
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-outline-secondary mt-2 reload-data-btn">
+                    <i class="fas fa-sync-alt me-1"></i>重试
+                </button>
+            </div>
+        `;
+
+        const reloadBtn = container.querySelector('.reload-data-btn');
+        if (reloadBtn) {
+            reloadBtn.addEventListener('click', function() {
+                loadData(containerId.replace('-chart', ''));
+            });
+        }
+    }
+
+    /**
+     * 显示加载中状态
+     * @param {string} containerId 容器ID
+     */
+    function showLoading(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="d-flex justify-content-center align-items-center h-100">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">加载中...</span>
+                </div>
+                <span class="ms-2">加载中...</span>
+            </div>
+        `;
+    }
+
+    /**
+     * 替代渲染为表格
+     * @param {string} containerId 容器ID
+     * @param {Array} data 数据
+     * @param {string} keyLabel 第一列标签
+     * @param {string} valueLabel 第二列标签
+     */
+    function renderAsTable(containerId, data, keyLabel = '名称', valueLabel = '值') {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        const table = document.createElement('table');
+        table.className = 'table table-striped table-hover';
+
+        // 创建表头
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+        const keyHeader = document.createElement('th');
+        keyHeader.textContent = keyLabel;
+        const valueHeader = document.createElement('th');
+        valueHeader.textContent = valueLabel;
+        headerRow.appendChild(keyHeader);
+        headerRow.appendChild(valueHeader);
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // 创建表体
+        const tbody = document.createElement('tbody');
+        data.forEach(item => {
+            const row = document.createElement('tr');
+
+            const keyCell = document.createElement('td');
+            keyCell.textContent = item.name || item.rating || item.x || '';
+
+            const valueCell = document.createElement('td');
+            valueCell.textContent = item.value || item.count || item.y || 0;
+
+            row.appendChild(keyCell);
+            row.appendChild(valueCell);
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        container.appendChild(table);
+    }
+
+    /**
+     * 渲染统计卡片
+     * @param {string} containerId 容器ID
+     * @param {Array} data 数据
+     */
+    function renderStatCards(containerId, data) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        const row = document.createElement('div');
+        row.className = 'row g-3';
+
+        data.forEach(item => {
+            const col = document.createElement('div');
+            col.className = 'col-sm-6 col-md-3';
+
+            const card = document.createElement('div');
+            card.className = 'card h-100 border-0 shadow-sm';
+            card.style.borderTop = `3px solid ${item.color || '#6d28d9'}`;
+
+            const cardBody = document.createElement('div');
+            cardBody.className = 'card-body text-center';
+
+            const icon = document.createElement('div');
+            icon.className = 'mb-2';
+            icon.innerHTML = `<i class="fas fa-chart-line" style="font-size: 1.5rem; color: ${item.color || '#6d28d9'}"></i>`;
+
+            const title = document.createElement('h5');
+            title.className = 'card-title';
+            title.textContent = item.name;
+
+            const value = document.createElement('h2');
+            value.className = 'card-text';
+            value.textContent = item.value;
+
+            cardBody.appendChild(icon);
+            cardBody.appendChild(title);
+            cardBody.appendChild(value);
+            card.appendChild(cardBody);
+            col.appendChild(card);
+            row.appendChild(col);
+        });
+
+        container.appendChild(row);
+    }
+
+    /**
+     * 加载数据
+     * @param {string} dataType 数据类型
+     */
+    function loadData(dataType) {
+        let endpoint = '';
+        let containerID = '';
+
+        switch (dataType) {
+            case 'rating-distribution':
+                endpoint = '/visualizations/api/data/rating-distribution/';
+                containerID = 'rating-distribution-chart';
+                break;
+            case 'genre-preference':
+                endpoint = '/visualizations/api/data/genre-preference/';
+                containerID = 'genre-preference-chart';
+                break;
+            case 'viewing-trends':
+                endpoint = '/visualizations/api/data/viewing-trends/';
+                containerID = 'viewing-trends-chart';
+                break;
+            case 'journey-timeline':
+                endpoint = '/visualizations/api/data/journey-timeline/';
+                containerID = 'user-journey-timeline';
+                break;
+            case 'recommendation-insights':
+                endpoint = '/visualizations/api/data/recommendation-insights/';
+                containerID = 'recommendation-factors-chart'; // 会同时处理多个图表
+                break;
+            default:
+                console.error('未知的数据类型:', dataType);
+                return;
+        }
+
+        // 显示加载状态
+        showLoading(containerID);
+
+        // 获取数据
+        fetch(endpoint)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`服务器返回错误: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    // 根据数据类型处理数据
+                    switch (dataType) {
+                        case 'rating-distribution':
+                            renderRatingDistributionFallback(data.data);
+                            break;
+                        case 'genre-preference':
+                            renderGenrePreferenceFallback(data.data);
+                            break;
+                        case 'viewing-trends':
+                            renderViewingTrendsFallback(data.data);
+                            break;
+                        case 'journey-timeline':
+                            renderJourneyTimelineFallback(data.data);
+                            break;
+                        case 'recommendation-insights':
+                            renderRecommendationInsightsFallback(data.data);
+                            break;
+                    }
+                } else {
+                    showError(containerID, data.error || '获取数据失败');
+                }
+            })
+            .catch(error => {
+                console.error(`加载${dataType}失败:`, error);
+                showError(containerID, `加载失败: ${error.message}`);
+            });
+    }
+
+    /**
+     * 渲染评分分布（后备方案）
+     * @param {Array} data 评分分布数据
+     */
+    function renderRatingDistributionFallback(data) {
+        const containerID = 'rating-distribution-chart';
+
+        try {
+            // 尝试使用Chart.js渲染
+            if (typeof Chart !== 'undefined') {
+                const container = document.getElementById(containerID);
+                if (!container) return;
+
+                // 清空容器
+                container.innerHTML = '';
+
+                // 创建canvas元素
+                const canvas = document.createElement('canvas');
+                container.appendChild(canvas);
+
+                try {
+                    // 验证数据
+                    if (!data || !Array.isArray(data) || data.length === 0) {
+                        throw new Error('无评分数据');
+                    }
+
+                    // 获取2D上下文
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        throw new Error('无法获取Canvas上下文');
+                    }
+
+                    // 渲染图表
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.map(d => `${d.rating}星`),
+                            datasets: [{
+                                label: '评分数量',
+                                data: data.map(d => d.count),
+                                backgroundColor: [
+                                    '#6d28d9', '#8b5cf6', '#10b981', '#3b82f6', '#f97316'
+                                ]
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('渲染评分分布图表错误:', error);
+                    // 降级为表格
+                    renderAsTable(containerID, data, '评分', '数量');
+                }
+            } else {
+                // Chart.js未加载，使用表格渲染
+                renderAsTable(containerID, data, '评分', '数量');
+            }
+        } catch (error) {
+            console.error('评分分布渲染失败:', error);
+            showError(containerID, '渲染评分分布失败');
+        }
+    }
+
+    /**
+     * 渲染类型偏好（后备方案）
+     * @param {Array} data 类型偏好数据
+     */
+    function renderGenrePreferenceFallback(data) {
+        const containerID = 'genre-preference-chart';
+
+        try {
+            // 尝试使用Chart.js渲染
+            if (typeof Chart !== 'undefined') {
+                const container = document.getElementById(containerID);
+                if (!container) return;
+
+                // 清空容器
+                container.innerHTML = '';
+
+                // 创建canvas元素
+                const canvas = document.createElement('canvas');
+                container.appendChild(canvas);
+
+                try {
+                    // 验证数据
+                    if (!data || !Array.isArray(data) || data.length === 0) {
+                        throw new Error('无类型偏好数据');
+                    }
+
+                    // 获取2D上下文
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        throw new Error('无法获取Canvas上下文');
+                    }
+
+                    // 渲染图表
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.map(d => d.name),
+                            datasets: [{
+                                label: '偏好分数',
+                                data: data.map(d => d.value),
+                                backgroundColor: [
+                                    '#6d28d9', '#8b5cf6', '#10b981', '#3b82f6', '#f97316',
+                                    '#ef4444', '#ec4899', '#8b5cf6'
+                                ]
+                            }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('渲染类型偏好图表错误:', error);
+                    // 降级为表格
+                    renderAsTable(containerID, data, '类型', '偏好值');
+                }
+            } else {
+                // Chart.js未加载，使用表格渲染
+                renderAsTable(containerID, data, '类型', '偏好值');
+            }
+        } catch (error) {
+            console.error('类型偏好渲染失败:', error);
+            showError(containerID, '渲染类型偏好失败');
+        }
+    }
+
+    /**
+     * 渲染浏览趋势（后备方案）
+     * @param {Array} data 浏览趋势数据
+     */
+    function renderViewingTrendsFallback(data) {
+        const containerID = 'viewing-trends-chart';
+
+        try {
+            // 尝试使用Chart.js渲染
+            if (typeof Chart !== 'undefined') {
+                const container = document.getElementById(containerID);
+                if (!container) return;
+
+                // 清空容器
+                container.innerHTML = '';
+
+                // 创建canvas元素
+                const canvas = document.createElement('canvas');
+                container.appendChild(canvas);
+
+                try {
+                    // 验证数据
+                    if (!data || !Array.isArray(data) || data.length === 0) {
+                        throw new Error('无趋势数据');
+                    }
+
+                    // 获取2D上下文
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        throw new Error('无法获取Canvas上下文');
+                    }
+
+                    // 格式化日期
+                    const formatDate = (dateStr) => {
+                        try {
+                            const date = new Date(dateStr);
+                            if (isNaN(date.getTime())) return dateStr;
+                            return `${date.getMonth() + 1}/${date.getDate()}`;
+                        } catch (e) {
+                            return dateStr;
+                        }
+                    };
+
+                    // 渲染图表
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.map(d => formatDate(d.date)),
+                            datasets: [
+                                {
+                                    label: '浏览量',
+                                    data: data.map(d => d.views),
+                                    borderColor: '#6d28d9',
+                                    backgroundColor: 'rgba(109, 40, 217, 0.2)',
+                                    tension: 0.4,
+                                    fill: true
+                                },
+                                {
+                                    label: '评分数',
+                                    data: data.map(d => d.ratings),
+                                    borderColor: '#10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                    tension: 0.4,
+                                    fill: true
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'top'
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('渲染趋势图表错误:', error);
+                    // 降级为表格
+                    // 创建表格
+                    const table = document.createElement('table');
+                    table.className = 'table table-striped table-hover';
+
+                    // 创建表头
+                    const thead = document.createElement('thead');
+                    const headerRow = document.createElement('tr');
+
+                    ['日期', '浏览量', '评分数'].forEach(text => {
+                        const th = document.createElement('th');
+                        th.textContent = text;
+                        headerRow.appendChild(th);
+                    });
+
+                    thead.appendChild(headerRow);
+                    table.appendChild(thead);
+
+                    // 创建表体
+                    const tbody = document.createElement('tbody');
+
+                    data.forEach(item => {
+                        const row = document.createElement('tr');
+
+                        // 日期单元格
+                        const dateCell = document.createElement('td');
+                        try {
+                            const date = new Date(item.date);
+                            dateCell.textContent = date.toLocaleDateString();
+                        } catch (e) {
+                            dateCell.textContent = item.date || '';
+                        }
+
+                        // 浏览量单元格
+                        const viewsCell = document.createElement('td');
+                        viewsCell.textContent = item.views || 0;
+
+                        // 评分数单元格
+                        const ratingsCell = document.createElement('td');
+                        ratingsCell.textContent = item.ratings || 0;
+
+                        row.appendChild(dateCell);
+                        row.appendChild(viewsCell);
+                        row.appendChild(ratingsCell);
+                        tbody.appendChild(row);
+                    });
+
+                    table.appendChild(tbody);
+
+                    // 清空并添加表格
+                    container.innerHTML = '';
+                    container.appendChild(table);
+                }
+            } else {
+                // Chart.js未加载，使用表格渲染
+                const container = document.getElementById(containerID);
+                if (!container) return;
+
+                // 创建表格
+                const table = document.createElement('table');
+                table.className = 'table table-striped table-hover';
+
+                // 创建表头
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+
+                ['日期', '浏览量', '评分数'].forEach(text => {
+                    const th = document.createElement('th');
+                    th.textContent = text;
+                    headerRow.appendChild(th);
+                });
+
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+
+                // 创建表体
+                const tbody = document.createElement('tbody');
+
+                data.forEach(item => {
+                    const row = document.createElement('tr');
+
+                    // 日期单元格
+                    const dateCell = document.createElement('td');
+                    try {
+                        const date = new Date(item.date);
+                        dateCell.textContent = date.toLocaleDateString();
+                    } catch (e) {
+                        dateCell.textContent = item.date || '';
+                    }
+
+                    // 浏览量单元格
+                    const viewsCell = document.createElement('td');
+                    viewsCell.textContent = item.views || 0;
+
+                    // 评分数单元格
+                    const ratingsCell = document.createElement('td');
+                    ratingsCell.textContent = item.ratings || 0;
+
+                    row.appendChild(dateCell);
+                    row.appendChild(viewsCell);
+                    row.appendChild(ratingsCell);
+                    tbody.appendChild(row);
+                });
+
+                table.appendChild(tbody);
+
+                // 清空并添加表格
+                container.innerHTML = '';
+                container.appendChild(table);
+            }
+        } catch (error) {
+            console.error('浏览趋势渲染失败:', error);
+            showError(containerID, '渲染浏览趋势失败');
+        }
+    }
+
+    /**
+     * 渲染用户旅程时间线（后备方案）
+     * @param {Array} data 用户旅程数据
+     */
+    function renderJourneyTimelineFallback(data) {
+        const containerID = 'user-journey-timeline';
+        const container = document.getElementById(containerID);
+        if (!container) return;
+
+        try {
+            // 验证数据
+            if (!data || !Array.isArray(data) || data.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        暂无旅程数据
+                    </div>
+                `;
+                return;
+            }
+
+            // 清空容器
+            container.innerHTML = '';
+
+            // 创建时间线
+            const timeline = document.createElement('div');
+            timeline.className = 'timeline-container';
+
+            // 排序数据
+            const sortedData = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            // 创建时间线项
+            sortedData.forEach((event, index) => {
+                // 创建时间线项
+                const timelineItem = document.createElement('div');
+                timelineItem.className = 'timeline-item';
+                if (index % 2 === 0) {
+                    timelineItem.classList.add('left');
+                } else {
+                    timelineItem.classList.add('right');
+                }
+
+                // 创建时间线点
+                const timelineDot = document.createElement('div');
+                timelineDot.className = 'timeline-dot';
+                timelineDot.style.backgroundColor = getEventColor(event.type);
+
+                // 创建时间线内容
+                const timelineContent = document.createElement('div');
+                timelineContent.className = 'timeline-content';
+
+                // 格式化日期
+                let dateStr;
+                try {
+                    const date = new Date(event.date);
+                    dateStr = date.toLocaleString();
+                } catch (e) {
+                    dateStr = event.date || '';
+                }
+
+                // 获取类型名称
+                const typeName = {
+                    browse: '浏览',
+                    rate: '评分',
+                    comment: '评论',
+                    like: '点赞',
+                    favorite: '收藏'
+                }[event.type] || event.type;
+
+                // 设置内容
+                timelineContent.innerHTML = `
+                    <h5>${typeName} - ${event.title || '未知内容'}</h5>
+                    <p class="text-muted">${dateStr}</p>
+                    <p>${event.detail || ''}</p>
+                `;
+
+                // 添加元素
+                timelineItem.appendChild(timelineDot);
+                timelineItem.appendChild(timelineContent);
+                timeline.appendChild(timelineItem);
+            });
+
+            // 添加时间线到容器
+            container.appendChild(timeline);
+
+            // 添加CSS样式
+            const style = document.createElement('style');
+            style.textContent = `
+                .timeline-container {
+                    position: relative;
+                    max-width: 1200px;
+                    margin: 0 auto;
+                }
+
+                .timeline-container::after {
+                    content: '';
+                    position: absolute;
+                    width: 6px;
+                    background-color: #e2e8f0;
+                    top: 0;
+                    bottom: 0;
+                    left: 50%;
+                    margin-left: -3px;
+                }
+
+                .timeline-item {
+                    padding: 10px 40px;
+                    position: relative;
+                    width: 50%;
+                    box-sizing: border-box;
+                }
+
+                .timeline-item.left {
+                    left: 0;
+                }
+
+                .timeline-item.right {
+                    left: 50%;
+                }
+
+                .timeline-dot {
+                    position: absolute;
+                    width: 20px;
+                    height: 20px;
+                    right: -10px;
+                    background-color: #6d28d9;
+                    border: 4px solid white;
+                    border-radius: 50%;
+                    z-index: 1;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                }
+
+                .timeline-item.right .timeline-dot {
+                    left: -10px;
+                }
+
+                .timeline-content {
+                    padding: 20px;
+                    background-color: white;
+                    position: relative;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                }
+
+                .timeline-content h5 {
+                    margin-top: 0;
+                }
+
+                @media screen and (max-width: 768px) {
+                    .timeline-container::after {
+                        left: 31px;
+                    }
+
+                    .timeline-item {
+                        width: 100%;
+                        padding-left: 70px;
+                        padding-right: 25px;
+                    }
+
+                    .timeline-item.right {
+                        left: 0;
+                    }
+
+                    .timeline-dot {
+                        left: 21px;
+                        right: auto;
+                    }
+                }
+            `;
+
+            document.head.appendChild(style);
+        } catch (error) {
+            console.error('用户旅程时间线渲染失败:', error);
+            showError(containerID, '渲染用户旅程时间线失败');
+        }
+    }
+
+    /**
+     * 渲染推荐洞察（后备方案）
+     * @param {Object} data 推荐洞察数据
+     */
+    function renderRecommendationInsightsFallback(data) {
+        try {
+            // 尝试渲染推荐因素图表
+            renderRecommendationFactorsChart(data);
+
+            // 尝试渲染类型评分图表
+            renderTopGenresChart(data);
+        } catch (error) {
+            console.error('推荐洞察渲染失败:', error);
+            showError('recommendation-factors-chart', '渲染推荐洞察失败');
+            showError('top-genres-chart', '渲染推荐洞察失败');
+        }
+    }
+
+    /**
+     * 渲染推荐因素图表
+     * @param {Object} data 推荐洞察数据
+     */
+    function renderRecommendationFactorsChart(data) {
+        const containerID = 'recommendation-factors-chart';
+        const container = document.getElementById(containerID);
+        if (!container) return;
+
+        try {
+            // 验证数据
+            if (!data || !data.recommendationFactors || !Array.isArray(data.recommendationFactors) || data.recommendationFactors.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        暂无推荐因素数据
+                    </div>
+                `;
+                return;
+            }
+
+            // 尝试使用Chart.js渲染
+            if (typeof Chart !== 'undefined') {
+                // 清空容器
+                container.innerHTML = '';
+
+                // 创建canvas元素
+                const canvas = document.createElement('canvas');
+                container.appendChild(canvas);
+
+                try {
+                    // 获取2D上下文
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        throw new Error('无法获取Canvas上下文');
+                    }
+
+                    // 渲染图表
+                    new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: data.recommendationFactors.map(f => f.name),
+                            datasets: [{
+                                data: data.recommendationFactors.map(f => f.weight * 100),
+                                backgroundColor: [
+                                    '#6d28d9', '#8b5cf6', '#10b981', '#3b82f6', '#f97316'
+                                ]
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const label = context.label || '';
+                                            const value = context.raw || 0;
+                                            const description = data.recommendationFactors[context.dataIndex].description;
+                                            return [`${label}: ${value}%`, description];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('渲染推荐因素图表错误:', error);
+                    // 降级为表格
+                    renderAsTable(containerID, data.recommendationFactors.map(f => ({
+                        name: f.name,
+                        value: `${(f.weight * 100).toFixed(1)}%`
+                    })), '推荐因素', '权重');
+                }
+            } else {
+                // Chart.js未加载，使用表格渲染
+                renderAsTable(containerID, data.recommendationFactors.map(f => ({
+                    name: f.name,
+                    value: `${(f.weight * 100).toFixed(1)}%`
+                })), '推荐因素', '权重');
+            }
+        } catch (error) {
+            console.error('推荐因素图表渲染失败:', error);
+            showError(containerID, '渲染推荐因素图表失败');
+        }
+    }
+
+    /**
+     * 渲染类型评分图表
+     * @param {Object} data 推荐洞察数据
+     */
+    function renderTopGenresChart(data) {
+        const containerID = 'top-genres-chart';
+        const container = document.getElementById(containerID);
+        if (!container) return;
+
+        try {
+            // 验证数据
+            if (!data || !data.topGenres || !Array.isArray(data.topGenres) || data.topGenres.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        暂无类型评分数据
+                    </div>
+                `;
+                return;
+            }
+
+            // 尝试使用Chart.js渲染
+            if (typeof Chart !== 'undefined') {
+                // 清空容器
+                container.innerHTML = '';
+
+                // 创建canvas元素
+                const canvas = document.createElement('canvas');
+                container.appendChild(canvas);
+
+                try {
+                    // 获取2D上下文
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        throw new Error('无法获取Canvas上下文');
+                    }
+
+                    // 渲染图表
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.topGenres.map(g => g.name),
+                            datasets: [{
+                                label: '平均评分',
+                                data: data.topGenres.map(g => g.averageRating),
+                                backgroundColor: '#6d28d9'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const label = context.dataset.label || '';
+                                            const value = context.raw || 0;
+                                            const count = data.topGenres[context.dataIndex].count;
+                                            return [`${label}: ${value}`, `评分数量: ${count}`];
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    max: 5
+                                }
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.error('渲染类型评分图表错误:', error);
+                    // 降级为表格
+                    renderAsTable(containerID, data.topGenres.map(g => ({
+                        name: g.name,
+                        value: g.averageRating
+                    })), '类型', '平均评分');
+                }
+            } else {
+                // Chart.js未加载，使用表格渲染
+                renderAsTable(containerID, data.topGenres.map(g => ({
+                    name: g.name,
+                    value: g.averageRating
+                })), '类型', '平均评分');
+            }
+        } catch (error) {
+            console.error('类型评分图表渲染失败:', error);
+            showError(containerID, '渲染类型评分图表失败');
+        }
+    }
+
+    /**
+     * 获取事件颜色
+     * @param {string} type 事件类型
+     * @returns {string} 颜色值
+     */
+    function getEventColor(type) {
+        const colors = {
+            browse: '#3b82f6',
+            rate: '#10b981',
+            comment: '#f97316',
+            like: '#ef4444',
+            favorite: '#8b5cf6'
+        };
+
+        return colors[type] || '#6d28d9';
+    }
+
+    // 检查Chart.js是否已加载，如果没有加载则尝试加载
+    if (typeof Chart === 'undefined') {
+        console.log('Chart.js未加载，正在尝试加载...');
+
+        // 创建脚本元素
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+        script.async = true;
+        script.onload = function() {
+            console.log('Chart.js加载成功');
+            // 初始化图表
+            loadData('rating-distribution');
+            loadData('genre-preference');
+            loadData('recommendation-insights');
+        };
+        script.onerror = function() {
+            console.error('Chart.js加载失败，使用后备渲染方式');
+            // 使用后备渲染方式
+            loadData('rating-distribution');
+            loadData('genre-preference');
+            loadData('recommendation-insights');
+        };
+
+        document.head.appendChild(script);
+    } else {
+        // Chart.js已加载，直接初始化图表
+        loadData('rating-distribution');
+        loadData('genre-preference');
+        loadData('recommendation-insights');
+    }
+
+    // 初始化旅程时间线
+    document.getElementById('journey-tab')?.addEventListener('click', function() {
+        // 仅当切换到旅程标签页时加载数据
+        if (!document.getElementById('user-journey-timeline').innerHTML) {
+            loadData('journey-timeline');
+        }
+    });
+});
+</script>
+{% endblock %}

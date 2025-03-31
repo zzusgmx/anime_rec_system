@@ -100,6 +100,9 @@ INSTALLED_APPS = [
     'anime.apps.AnimeConfig',
     'users.apps.UsersConfig',
     'recommendation.apps.RecommendationConfig',
+
+    # 在INSTALLED_APPS中添加
+    'visualizations.apps.VisualizationsConfig',
 ]
 
 # Admin控制台配置

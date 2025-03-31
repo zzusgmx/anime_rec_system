@@ -27,7 +27,6 @@ def scan_directory(directory='.', exclude_extensions=['.png', '.jpg','pyc','map'
 
     return file_paths
 
-
 def main():
     # 获取文件列表
     files = scan_directory()

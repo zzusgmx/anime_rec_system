@@ -5,7 +5,6 @@ from django.utils.html import format_html
 from django.urls import reverse, path
 from django.db.models import Count, Avg
 from rangefilter.filters import DateRangeFilter
-from import_export.admin import ImportExportModelAdmin
 from import_export import resources
 from django.template.response import TemplateResponse
 from django.db.models.functions import TruncDay, TruncMonth
@@ -53,16 +52,6 @@ class UserRatingAdmin(BaseModelAdmin):
     # 每页显示记录数
     list_per_page = 30
 
-    # 自定义URL
-    def get_urls(self):
-        urls = super().get_urls()
-        custom_urls = [
-            path('rating-analytics/',
-                 self.admin_site.admin_view(self.rating_analytics_view),
-                 name='rating-analytics'),
-        ]
-        return custom_urls + urls
-
     # 只读字段
     readonly_fields = ('created_at', 'updated_at', 'timestamp')
 
@@ -87,83 +76,6 @@ class UserRatingAdmin(BaseModelAdmin):
         )
 
     rating_display.short_description = '评分'
-
-    # 评分分析视图
-    def rating_analytics_view(self, request):
-        """评分数据分析视图"""
-        # 获取基础统计数据
-        total_ratings = UserRating.objects.count()
-        avg_rating = UserRating.objects.aggregate(avg=Avg('rating'))['avg'] or 0
-
-        # 评分分布
-        rating_distribution = (
-            UserRating.objects
-            .values('rating')
-            .annotate(count=Count('id'))
-            .order_by('rating')
-        )
-
-        # 每日评分趋势
-        thirty_days_ago = timezone.now() - timedelta(days=30)
-        daily_ratings = (
-            UserRating.objects
-            .filter(timestamp__gte=thirty_days_ago)
-            .annotate(day=TruncDay('timestamp'))
-            .values('day')
-            .annotate(count=Count('id'), avg=Avg('rating'))
-            .order_by('day')
-        )
-
-        # 准备图表数据
-        rating_values = []
-        rating_counts = []
-
-        for item in rating_distribution:
-            rating_values.append(float(item['rating']))
-            rating_counts.append(item['count'])
-
-        daily_labels = []
-        daily_counts = []
-        daily_avgs = []
-
-        for item in daily_ratings:
-            daily_labels.append(item['day'].strftime('%m-%d'))
-            daily_counts.append(item['count'])
-            daily_avgs.append(float(item['avg']) if item['avg'] else 0)
-
-        # 准备上下文数据
-        context = {
-            'title': '评分数据分析',
-            'total_ratings': total_ratings,
-            'avg_rating': avg_rating,
-
-            'rating_values': json.dumps(rating_values),
-            'rating_counts': json.dumps(rating_counts),
-
-            'daily_labels': json.dumps(daily_labels),
-            'daily_counts': json.dumps(daily_counts),
-            'daily_avgs': json.dumps(daily_avgs),
-
-            # 添加最受欢迎的动漫
-            'top_rated_anime': (
-                UserRating.objects
-                .values('anime__id', 'anime__title')
-                .annotate(avg_rating=Avg('rating'), count=Count('id'))
-                .filter(count__gte=5)  # 至少5个评分
-                .order_by('-avg_rating')[:10]
-            ),
-
-            # 添加最活跃的评分用户
-            'most_active_raters': (
-                UserRating.objects
-                .values('user__id', 'user__username')
-                .annotate(count=Count('id'))
-                .order_by('-count')[:10]
-            ),
-        }
-
-        return TemplateResponse(request, 'admin/rating_analytics.html', context)
-
 
 # 评论资源类（用于导入/导出）
 class UserCommentResource(resources.ModelResource):
@@ -354,83 +266,6 @@ class UserFavoriteAdmin(BaseModelAdmin):
             'fields': ('created_at', 'updated_at'),
         }),
     )
-
-    # 自定义URL
-    def get_urls(self):
-        urls = super().get_urls()
-        custom_urls = [
-            path('favorite-analytics/',
-                 self.admin_site.admin_view(self.favorite_analytics_view),
-                 name='favorite-analytics'),
-        ]
-        return custom_urls + urls
-
-    # 收藏分析视图
-    def favorite_analytics_view(self, request):
-        """收藏数据分析视图"""
-        # 获取基础统计数据
-        total_favorites = UserFavorite.objects.count()
-        unique_users = UserFavorite.objects.values('user').distinct().count()
-        unique_anime = UserFavorite.objects.values('anime').distinct().count()
-
-        # 每日收藏趋势
-        thirty_days_ago = timezone.now() - timedelta(days=30)
-        daily_favorites = (
-            UserFavorite.objects
-            .filter(timestamp__gte=thirty_days_ago)
-            .annotate(day=TruncDay('timestamp'))
-            .values('day')
-            .annotate(count=Count('id'))
-            .order_by('day')
-        )
-
-        # 最受收藏的动漫
-        most_favorited = (
-            UserFavorite.objects
-            .values('anime__id', 'anime__title')
-            .annotate(count=Count('id'))
-            .order_by('-count')[:10]
-        )
-
-        # 最活跃的收藏用户
-        most_active_users = (
-            UserFavorite.objects
-            .values('user__id', 'user__username')
-            .annotate(count=Count('id'))
-            .order_by('-count')[:10]
-        )
-
-        # 准备图表数据
-        daily_labels = []
-        daily_counts = []
-
-        for item in daily_favorites:
-            daily_labels.append(item['day'].strftime('%m-%d'))
-            daily_counts.append(item['count'])
-
-        # 最受收藏动漫的图表数据
-        anime_labels = [item['anime__title'] for item in most_favorited]
-        anime_counts = [item['count'] for item in most_favorited]
-
-        # 准备上下文数据
-        context = {
-            'title': '收藏数据分析',
-            'total_favorites': total_favorites,
-            'unique_users': unique_users,
-            'unique_anime': unique_anime,
-
-            'daily_labels': json.dumps(daily_labels),
-            'daily_counts': json.dumps(daily_counts),
-
-            'anime_labels': json.dumps(anime_labels),
-            'anime_counts': json.dumps(anime_counts),
-
-            'most_favorited': most_favorited,
-            'most_active_users': most_active_users,
-        }
-
-        return TemplateResponse(request, 'admin/favorite_analytics.html', context)
-
 
 # 推荐缓存资源类（用于导入/导出）
 class RecommendationCacheResource(resources.ModelResource):

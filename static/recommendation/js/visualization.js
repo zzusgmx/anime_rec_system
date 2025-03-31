@@ -1423,7 +1423,281 @@ class QuantumVisualizationEngine {
       ]
     };
   }
+  // 创建互动统计图表选项
+_createInteractionStatsChartOption(data) {
+  return {
+    tooltip: {
+      trigger: 'item',
+      formatter: '{a} <br/>{b}: {c} ({d}%)'
+    },
+    legend: {
+      orient: 'vertical',
+      right: 10,
+      top: 'center',
+      data: data.map(item => item.name)
+    },
+    series: [
+      {
+        name: '互动类型',
+        type: 'pie',
+        radius: ['40%', '70%'],
+        avoidLabelOverlap: false,
+        itemStyle: {
+          borderRadius: 10,
+          borderColor: '#fff',
+          borderWidth: 2
+        },
+        label: {
+          show: false,
+          position: 'center'
+        },
+        emphasis: {
+          label: {
+            show: true,
+            fontSize: 16,
+            fontWeight: 'bold'
+          }
+        },
+        labelLine: {
+          show: false
+        },
+        data: data.map(item => ({
+          value: item.value,
+          name: item.name,
+          itemStyle: {
+            color: item.color || this.colors.gradients[0][0]
+          }
+        }))
+      }
+    ]
+  };
+}
 
+  // 创建用户关系网络图选项
+_createUserNetworkChartOption(data) {
+  // 设置网络节点符号和大小
+  data.nodes.forEach(node => {
+    node.symbolSize = node.value * 5 + 20; // 节点大小根据值进行缩放
+    node.itemStyle = {
+      color: node.category === 0 ? this.colors.gradients[0][0] : this.colors.gradients[2][0]
+    };
+    node.label = {
+      show: node.symbolSize > 30 // 只有较大的节点显示标签
+    };
+  });
+
+  // 设置边的属性
+  data.links.forEach(link => {
+    link.lineStyle = {
+      width: link.value,
+      color: link.type === 'reply' ? this.colors.gradients[1][0] : this.colors.gradients[3][0],
+      curveness: 0.3 // 添加一些曲度，使边不重叠
+    };
+  });
+
+  return {
+    tooltip: {
+      formatter: function(params) {
+        if (params.dataType === 'node') {
+          return `${params.name}: ${params.value}`;
+        }
+        return `${params.data.source} → ${params.data.target}: ${params.data.value}`;
+      }
+    },
+    legend: [
+      {
+        data: ['用户', '互动目标'],
+        orient: 'vertical',
+        right: 10,
+        top: 'center'
+      }
+    ],
+    series: [
+      {
+        name: '用户互动网络',
+        type: 'graph',
+        layout: 'force',
+        data: data.nodes,
+        links: data.links,
+        categories: [
+          { name: '用户' },
+          { name: '互动目标' }
+        ],
+        roam: true,
+        draggable: true,
+        label: {
+          position: 'right',
+          formatter: '{b}'
+        },
+        force: {
+          repulsion: 100,
+          edgeLength: [50, 200],
+          gravity: 0.1
+        },
+        emphasis: {
+          focus: 'adjacency',
+          lineStyle: {
+            width: 5
+          }
+        },
+        animation: true,
+        animationDuration: 1500,
+        animationEasingUpdate: 'quinticInOut'
+      }
+    ]
+  };
+}
+  // 创建互动时间线图表选项
+_createInteractionTimelineChartOption(data) {
+  // 解析日期
+  const dates = data.map(item => item.date);
+
+  // 提取各类型互动数量
+  const likes = data.map(item => item.likes || 0);
+  const replies = data.map(item => item.replies || 0);
+  const mentions = data.map(item => item.mentions || 0);
+
+  return {
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow'
+      }
+    },
+    legend: {
+      data: ['点赞', '回复', '提及']
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      axisLabel: {
+        rotate: 45,
+        interval: 'auto'
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: '互动次数',
+      minInterval: 1
+    },
+    series: [
+      {
+        name: '点赞',
+        type: 'bar',
+        stack: 'total',
+        emphasis: {
+          focus: 'series'
+        },
+        data: likes,
+        itemStyle: {
+          color: this.colors.gradients[3][0]
+        }
+      },
+      {
+        name: '回复',
+        type: 'bar',
+        stack: 'total',
+        emphasis: {
+          focus: 'series'
+        },
+        data: replies,
+        itemStyle: {
+          color: this.colors.gradients[1][0]
+        }
+      },
+      {
+        name: '提及',
+        type: 'bar',
+        stack: 'total',
+        emphasis: {
+          focus: 'series'
+        },
+        data: mentions,
+        itemStyle: {
+          color: this.colors.gradients[2][0]
+        }
+      }
+    ]
+  };
+}
+  // 创建互动热力图选项
+_createInteractionHeatmapChartOption(data) {
+  // 获取用户名称和日期
+  const users = data.users;
+  const dates = data.dates;
+
+  // 构建热力图数据
+  const heatmapData = [];
+  data.values.forEach((value, index) => {
+    const rowIndex = Math.floor(index / dates.length);
+    const colIndex = index % dates.length;
+    if (value > 0) {
+      heatmapData.push([colIndex, rowIndex, value]);
+    }
+  });
+
+  return {
+    tooltip: {
+      position: 'top',
+      formatter: function(params) {
+        return `${users[params.value[1]]} 在 ${dates[params.value[0]]} 有 ${params.value[2]} 次互动`;
+      }
+    },
+    grid: {
+      height: '70%',
+      y: '10%'
+    },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      splitArea: {
+        show: true
+      },
+      axisLabel: {
+        rotate: 45,
+        interval: 0
+      }
+    },
+    yAxis: {
+      type: 'category',
+      data: users,
+      splitArea: {
+        show: true
+      }
+    },
+    visualMap: {
+      min: 0,
+      max: Math.max(...heatmapData.map(item => item[2])),
+      calculable: true,
+      orient: 'horizontal',
+      left: 'center',
+      bottom: '0%',
+      inRange: {
+        color: ['#ebedf0', '#c6e48b', '#7bc96f', '#239a3b', '#196127']
+      }
+    },
+    series: [{
+      name: '互动热力图',
+      type: 'heatmap',
+      data: heatmapData,
+      label: {
+        show: false
+      },
+      emphasis: {
+        itemStyle: {
+          shadowBlur: 10,
+          shadowColor: 'rgba(0, 0, 0, 0.5)'
+        }
+      }
+    }]
+  };
+}
   // 创建雷达图选项
   _createRadarChartOption(data) {
     // 最多取前6个类型，避免雷达图过于拥挤

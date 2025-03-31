@@ -33,6 +33,16 @@ class Profile(TimeStampedModel):
     # 统计数据
     rating_count = models.PositiveIntegerField(default=0, verbose_name="评分次数")
     comment_count = models.PositiveIntegerField(default=0, verbose_name="评论次数")
+    # 新增互动统计字段
+    replies_count = models.PositiveIntegerField(default=0, verbose_name="回复次数")
+    likes_given_count = models.PositiveIntegerField(default=0, verbose_name="点赞他人次数")
+    likes_received_count = models.PositiveIntegerField(default=0, verbose_name="获得点赞次数")
+
+    # 社交活跃度（基于互动数据计算）
+    social_activity_score = models.FloatField(default=0, verbose_name="社交活跃度")
+
+    # 用户影响力（基于获得的点赞、评论和回复）
+    influence_score = models.FloatField(default=0, verbose_name="用户影响力")
 
     class Meta:
         verbose_name = "用户档案"
@@ -41,7 +51,24 @@ class Profile(TimeStampedModel):
     def __str__(self):
         return f"{self.user.username}的档案"
 
-
+    def calculate_influence(self):
+        """计算用户影响力分数"""
+        # 获得点赞权重：0.5
+        like_factor = self.likes_received_count * 0.5
+        # 获得回复权重：0.8
+        reply_factor = self.comment_count * 0.8
+        # 计算总分
+        self.influence_score = like_factor + reply_factor
+        return self.influence_score
+    def calculate_social_activity(self):
+        """计算社交活跃度"""
+        # 发出点赞权重：0.3
+        likes_given_factor = self.likes_given_count * 0.3
+        # 发出回复权重：0.7
+        replies_factor = self.replies_count * 0.7
+        # 计算总分
+        self.social_activity_score = likes_given_factor + replies_factor
+        return self.social_activity_score
 # 使用信号自动创建用户档案
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):

@@ -1,0 +1,624 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}用户互动中心 | 量子级动漫推荐系统{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/interaction.css' %}">
+<link rel="stylesheet" href="{% static 'recommendation/css/visualization.css' %}">
+<style>
+  /* 整体页面样式 */
+  .page-container {
+    background-color: #f5f7fa;
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  }
+
+  /* 标题区样式 */
+  .quantum-header {
+    background: linear-gradient(135deg, #5e35b1, #7b68ee);
+    color: white;
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 6px 15px rgba(94, 53, 177, 0.3);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .quantum-header::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
+    height: 100%;
+    background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' fill='%23ffffff' fill-opacity='0.1' fill-rule='evenodd'/%3E%3C/svg%3E");
+    opacity: 0.2;
+  }
+
+  .header-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+  }
+
+  .header-icon {
+    font-size: 3rem;
+    margin-right: 1.5rem;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.2);
+    width: 70px;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 15px;
+  }
+
+  .header-text h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  .header-text p {
+    font-size: 1.1rem;
+    opacity: 0.9;
+    max-width: 600px;
+  }
+
+  /* 导航栏样式 */
+  .quantum-nav {
+    background: white;
+    border-radius: 12px;
+    padding: 0.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .quantum-nav-btn {
+    flex: 1;
+    min-width: 120px;
+    padding: 1rem 1.25rem;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-weight: 600;
+    color: #5e35b1;
+    transition: all 0.3s ease;
+    margin: 0.25rem;
+  }
+
+  .quantum-nav-btn:hover {
+    background: rgba(94, 53, 177, 0.05);
+  }
+
+  .quantum-nav-btn.active {
+    background: #5e35b1;
+    color: white;
+    box-shadow: 0 4px 10px rgba(94, 53, 177, 0.25);
+  }
+
+  /* 内容卡片样式 */
+  .quantum-card {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    margin-bottom: 1.5rem;
+    transition: all 0.3s ease;
+  }
+
+  .quantum-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  }
+
+  .card-header {
+    background: linear-gradient(135deg, #5e35b1, #7b68ee);
+    color: white;
+    padding: 1.25rem 1.5rem;
+    font-weight: 600;
+    position: relative;
+  }
+
+  .card-header h5 {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  /* 用户卡片样式 */
+  .user-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+  }
+
+  .user-card:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  .user-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    object-fit: cover;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    border: 3px solid white;
+    margin-right: 1.25rem;
+  }
+
+  .user-info {
+    flex-grow: 1;
+  }
+
+  .user-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: #333;
+  }
+
+  /* 互动标签样式 */
+  .interaction-badge {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 0.5rem;
+  }
+
+  .badge-reply {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+  }
+
+  .badge-like {
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+  }
+
+  .badge-mention {
+    background: rgba(37, 99, 235, 0.15);
+    color: #1d4ed8;
+  }
+
+  /* 统计样式 */
+  .stats-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .stat-item {
+    background: rgba(94, 53, 177, 0.03);
+    border-radius: 10px;
+    padding: 1.25rem;
+    text-align: center;
+    border: 1px solid rgba(94, 53, 177, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  .stat-item:hover {
+    background: rgba(94, 53, 177, 0.08);
+    transform: translateY(-3px);
+  }
+
+  .stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #5e35b1;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-label {
+    font-size: 0.9rem;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  .influence-score {
+    grid-column: span 2;
+    background: rgba(94, 53, 177, 0.08);
+    text-align: center;
+    padding: 1.25rem;
+    border-radius: 10px;
+    margin-top: 0.5rem;
+  }
+
+  .influence-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #5e35b1;
+    margin-bottom: 0.25rem;
+  }
+
+  .influence-label {
+    font-size: 1rem;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  /* 加载动画 */
+  .loading-container {
+    text-align: center;
+    padding: 2rem;
+  }
+
+  .quantum-spinner {
+    display: inline-block;
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(94, 53, 177, 0.2);
+    border-radius: 50%;
+    border-top-color: #5e35b1;
+    animation: quantum-spin 1s ease-in-out infinite;
+  }
+
+  @keyframes quantum-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* 图表容器 */
+  .chart-container {
+    height: 300px;
+    width: 100%;
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  /* 互动项目 */
+  .interaction-item {
+    background: white;
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    position: relative;
+  }
+
+  .interaction-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+  }
+
+  .interaction-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .interaction-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    margin-right: 1rem;
+    object-fit: cover;
+  }
+
+  .interaction-content {
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 0.5rem;
+    border-left: 3px solid #5e35b1;
+  }
+
+  .interaction-footer {
+    display: flex;
+    align-items: center;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: #6b7280;
+  }
+
+  .interaction-timestamp {
+    margin-left: auto;
+    font-size: 0.85rem;
+    color: #6b7280;
+  }
+
+  /* 响应式调整 */
+  @media (max-width: 992px) {
+    .quantum-nav {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+    }
+
+    .quantum-nav-btn {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+
+    .header-content {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .header-icon {
+      margin-right: 0;
+      margin-bottom: 1rem;
+    }
+
+    .stats-container {
+      grid-template-columns: 1fr;
+    }
+
+    .influence-score {
+      grid-column: span 1;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .page-container {
+      padding: 1rem;
+    }
+
+    .quantum-header {
+      padding: 1.5rem 1rem;
+    }
+
+    .header-text h1 {
+      font-size: 1.5rem;
+    }
+
+    .card-header {
+      padding: 1rem;
+    }
+
+    .card-body {
+      padding: 1rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-container">
+  <!-- 标题区域 -->
+  <div class="quantum-header">
+    <div class="header-content">
+      <div class="header-icon">
+        <i class="fas fa-users"></i>
+      </div>
+      <div class="header-text">
+        <h1>用户互动中心</h1>
+        <p>探索社区中的用户互动，发现有趣的讨论和连接，增强您的社区体验</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-8">
+      <!-- 互动导航 -->
+      <div class="quantum-nav">
+        <button class="quantum-nav-btn active" data-panel-target="recent-interactions">
+          <i class="fas fa-clock me-2"></i>最近互动
+        </button>
+        <button class="quantum-nav-btn" data-panel-target="my-interactions">
+          <i class="fas fa-user-circle me-2"></i>我的互动
+        </button>
+        <button class="quantum-nav-btn" data-panel-target="active-users">
+          <i class="fas fa-medal me-2"></i>活跃用户
+        </button>
+        <button class="quantum-nav-btn" data-panel-target="network-viz">
+          <i class="fas fa-project-diagram me-2"></i>互动网络
+        </button>
+      </div>
+
+      <!-- 最近互动面板 -->
+      <div class="interaction-panel active" id="recent-interactions">
+        <div class="quantum-card">
+          <div class="card-header">
+            <h5><i class="fas fa-clock me-2"></i>最新社区互动</h5>
+          </div>
+          <div class="card-body">
+            <div class="interaction-list">
+              <div class="loading-container">
+                <div class="quantum-spinner"></div>
+                <p class="mt-3">加载最近互动数据...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 我的互动面板 -->
+      <div class="interaction-panel d-none" id="my-interactions">
+        <div class="quantum-card">
+          <div class="card-header">
+            <h5><i class="fas fa-user-circle me-2"></i>我的互动历史</h5>
+          </div>
+          <div class="card-body">
+            <div class="my-interactions-list">
+              <div class="loading-container">
+                <div class="quantum-spinner"></div>
+                <p class="mt-3">加载您的互动历史...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 活跃用户面板 -->
+      <div class="interaction-panel d-none" id="active-users">
+        <div class="quantum-card">
+          <div class="card-header">
+            <h5><i class="fas fa-medal me-2"></i>最活跃的社区成员</h5>
+          </div>
+          <div class="card-body">
+            <div class="active-users-list">
+              <div class="loading-container">
+                <div class="quantum-spinner"></div>
+                <p class="mt-3">加载活跃用户数据...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 互动网络可视化面板 -->
+      <div class="interaction-panel d-none" id="network-viz">
+        <div class="quantum-card">
+          <div class="card-header">
+            <h5><i class="fas fa-project-diagram me-2"></i>社区互动网络</h5>
+          </div>
+          <div class="card-body">
+            <p class="text-muted mb-4">探索用户之间的互动关系网络，了解社区连接</p>
+            <div class="chart-container" id="interactionNetworkChart">
+              <div class="loading-container">
+                <div class="quantum-spinner"></div>
+                <p class="mt-3">生成互动网络图...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <!-- 个人互动统计 -->
+      <div class="quantum-card">
+        <div class="card-header">
+          <h5><i class="fas fa-chart-bar me-2"></i>我的互动统计</h5>
+        </div>
+        <div class="card-body p-0" id="interactionSummary">
+          <div class="loading-container">
+            <div class="quantum-spinner"></div>
+            <p class="mt-3">加载统计数据...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 互动可视化 -->
+      <div class="quantum-card">
+        <div class="card-header">
+          <h5><i class="fas fa-chart-pie me-2"></i>互动分析</h5>
+        </div>
+        <div class="card-body">
+          <div class="chart-container" id="interactionStatsChart">
+            <div class="loading-container">
+              <div class="quantum-spinner"></div>
+              <p class="mt-3">生成分析图表...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 互动时间线 -->
+      <div class="quantum-card">
+        <div class="card-header">
+          <h5><i class="fas fa-calendar-alt me-2"></i>互动时间线</h5>
+        </div>
+        <div class="card-body">
+          <div class="chart-container" id="interactionTimelineChart">
+            <div class="loading-container">
+              <div class="quantum-spinner"></div>
+              <p class="mt-3">生成时间线图表...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 互动详情模态框 -->
+<div class="modal fade" id="interactionDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" style="background: linear-gradient(135deg, #5e35b1, #7b68ee); color: white;">
+        <h5 class="modal-title" id="interactionModalTitle">互动详情</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" style="filter: brightness(0) invert(1);"></button>
+      </div>
+      <div class="modal-body" id="interactionModalContent">
+        <div class="loading-container text-center py-3">
+          <div class="quantum-spinner"></div>
+          <p class="mt-2">加载详情...</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+        <a href="#" class="btn btn-primary" id="viewContentBtn" style="background-color: #5e35b1; border-color: #5e35b1;">查看内容</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- 确保ECharts已加载 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.0/echarts.min.js"></script>
+<script src="{% static 'recommendation/js/user-interactions.js' %}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 面板切换功能
+    const navButtons = document.querySelectorAll('.quantum-nav-btn');
+    const panels = document.querySelectorAll('.interaction-panel');
+
+    navButtons.forEach(btn => {
+      btn.addEventListener('click', function() {
+        const targetPanelId = this.getAttribute('data-panel-target');
+
+        // 更新按钮状态
+        navButtons.forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+
+        // 更新面板显示
+        panels.forEach(panel => {
+          if (panel.id === targetPanelId) {
+            panel.classList.remove('d-none');
+          } else {
+            panel.classList.add('d-none');
+          }
+        });
+
+        // 如果加载了交互管理器，通知其面板切换
+        if (window.interactionManager) {
+          window.interactionManager.switchPanel(targetPanelId);
+        }
+      });
+    });
+
+    // 检查交互管理器是否加载
+    if (!window.interactionManager) {
+      console.error('互动管理器加载失败，尝试重新初始化');
+      try {
+        window.interactionManager = new UserInteractionManager();
+      } catch (error) {
+        console.error('初始化互动管理器失败:', error);
+        document.querySelectorAll('.loading-container').forEach(container => {
+          container.innerHTML = `
+            <div class="text-center text-danger">
+              <i class="fas fa-exclamation-circle fa-3x mb-3"></i>
+              <p>加载互动功能失败，请刷新页面重试</p>
+              <button class="btn btn-primary mt-2" onclick="location.reload()">
+                <i class="fas fa-sync-alt me-1"></i> 刷新页面
+              </button>
+            </div>
+          `;
+        });
+      }
+    }
+  });
+</script>
+{% endblock %}

@@ -400,6 +400,9 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- 首先加载评论互动脚本 -->
+<script src="{% static 'recommendation/js/comment-interactions.js' %}"></script>
+
 <script>
 // 使用Django模板变量初始化JavaScript变量，添加严格类型转换和默认值处理
 // 将Django模板变量先转换为字符串，再进行类型转换，避免解析冲突
@@ -608,76 +611,45 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-
-
-    // 委托处理评论点赞事件
-    $(document).on('click', '.comment-like-btn', function() {
-        if (!isLoggedIn) {
-            showLoginAlert();
-            return;
-        }
-
-        const $btn = $(this);
-        const commentId = $btn.data('comment-id');
-
-        // 发送点赞请求
-        fetch(`/recommendations/comments/like/${commentId}/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
+    // 在document.ready中添加这段代码，替换原有的分页相关JavaScript
+    $(document).ready(function() {
+        // 直接绑定到document上，确保动态添加的元素也能触发事件
+        $(document).on('click', '.pagination .page-link', function(e) {
+            // 如果链接已禁用，不做处理
+            if ($(this).parent().hasClass('disabled') || $(this).parent().hasClass('active')) {
+                e.preventDefault();
+                return false;
             }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // 更新点赞计数和图标
-                $btn.find('.like-count').text(data.like_count);
 
-                if (data.action === 'added') {
-                    $btn.addClass('active');
-                    $btn.find('i').removeClass('far').addClass('fas');
-                } else {
-                    $btn.removeClass('active');
-                    $btn.find('i').removeClass('fas').addClass('far');
-                }
-            } else {
-                showToast('错误', data.error || '操作失败，请稍后再试');
-            }
-        })
-        .catch(error => {
-            console.error('点赞操作错误:', error);
-            showToast('错误', '服务器错误，请稍后再试');
+            // 获取目标页码URL
+            const href = $(this).attr('href');
+            if (!href) return true;
+
+            // 阻止默认行为
+            e.preventDefault();
+
+            // 显示加载状态
+            $('#commentsList').html('<div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">加载评论中...</p></div>');
+
+            // 简单的页面跳转方式 - 这是最可靠的方法
+            window.location.href = href;
+
+            return false;
         });
+
+        // 确保所有分页链接的href属性是完整的
+        $('.pagination .page-link').each(function() {
+            const href = $(this).attr('href');
+            if (href && !href.includes(window.location.pathname)) {
+                // 确保链接包含完整路径
+                $(this).attr('href', window.location.pathname + href);
+            }
+        });
+
+        console.log('分页事件绑定完成'); // 调试信息
     });
 
-    // 委托处理评论编辑点击事件
-    $(document).on('click', '.edit-comment', function(e) {
-        e.preventDefault();
-
-        const commentId = $(this).data('comment-id');
-        const $commentContent = $(`#comment-content-${commentId}`);
-        const $editForm = $(`#comment-edit-form-${commentId}`);
-
-        // 显示编辑表单，隐藏内容
-        $commentContent.addClass('d-none');
-        $editForm.removeClass('d-none');
-
-        // 聚焦文本框
-        $editForm.find('textarea').focus();
-    });
-
-    // 委托处理评论编辑取消事件
-    $(document).on('click', '.cancel-edit', function() {
-        const commentId = $(this).data('comment-id');
-        const $commentContent = $(`#comment-content-${commentId}`);
-        const $editForm = $(`#comment-edit-form-${commentId}`);
-
-        // 隐藏编辑表单，显示内容
-        $editForm.addClass('d-none');
-        $commentContent.removeClass('d-none');
-        });
-        // 点赞按钮点击事件
+    // 点赞按钮点击事件
     $('#likeButton').click(function() {
         if (!isLoggedIn) {
             showLoginAlert();
@@ -704,146 +676,6 @@ document.addEventListener('DOMContentLoaded', function() {
             error: function() {
                 showToast('错误', '操作失败，请稍后再试');
             }
-        });
-    });
-
-    // 委托处理评论编辑保存事件
-    $(document).on('click', '.save-edit', function() {
-        const $btn = $(this);
-        const commentId = $btn.data('comment-id');
-        const $editForm = $(`#comment-edit-form-${commentId}`);
-        const $commentContent = $(`#comment-content-${commentId}`);
-        const content = $editForm.find('textarea').val().trim();
-
-        if (!content) {
-            showToast('错误', '评论内容不能为空');
-            return;
-        }
-
-        // 显示保存中状态
-        const originalHtml = $btn.html();
-        $btn.html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
-
-        // 发送更新请求
-        fetch(`/recommendations/comments/update/${commentId}/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            },
-            body: JSON.stringify({ content: content })
-        })
-        .then(response => response.json())
-        .then(data => {
-            // 恢复按钮状态
-            $btn.html(originalHtml).prop('disabled', false);
-
-            if (data.success) {
-                // 更新显示的内容
-                $commentContent.html(data.content.replace(/\n/g, '<br>'));
-
-                // 隐藏编辑表单，显示内容
-                $editForm.addClass('d-none');
-                $commentContent.removeClass('d-none');
-
-                // 显示成功消息
-                showToast('成功', '评论已更新');
-            } else {
-                showToast('错误', data.error || '更新失败，请稍后再试');
-            }
-        })
-        .catch(error => {
-            console.error('评论更新错误:', error);
-            $btn.html(originalHtml).prop('disabled', false);
-            showToast('错误', '服务器错误，请稍后再试');
-        });
-    });
-
-// 在document.ready中添加这段代码，替换原有的分页相关JavaScript
-$(document).ready(function() {
-    // 直接绑定到document上，确保动态添加的元素也能触发事件
-    $(document).on('click', '.pagination .page-link', function(e) {
-        // 如果链接已禁用，不做处理
-        if ($(this).parent().hasClass('disabled') || $(this).parent().hasClass('active')) {
-            e.preventDefault();
-            return false;
-        }
-
-        // 获取目标页码URL
-        const href = $(this).attr('href');
-        if (!href) return true;
-
-        // 阻止默认行为
-        e.preventDefault();
-
-        // 显示加载状态
-        $('#commentsList').html('<div class="text-center py-4"><i class="fas fa-spinner fa-spin fa-2x"></i><p class="mt-2">加载评论中...</p></div>');
-
-        // 简单的页面跳转方式 - 这是最可靠的方法
-        window.location.href = href;
-
-        return false;
-    });
-
-    // 确保所有分页链接的href属性是完整的
-    $('.pagination .page-link').each(function() {
-        const href = $(this).attr('href');
-        if (href && !href.includes(window.location.pathname)) {
-            // 确保链接包含完整路径
-            $(this).attr('href', window.location.pathname + href);
-        }
-    });
-
-    console.log('分页事件绑定完成'); // 调试信息
-});
-
-    // 委托处理评论删除事件
-    $(document).on('click', '.delete-comment', function(e) {
-        e.preventDefault();
-
-        if (!confirm('确定要删除这条评论吗？此操作无法撤销。')) {
-            return;
-        }
-
-        const commentId = $(this).data('comment-id');
-        const $commentItem = $(this).closest('.comment-item');
-
-        // 发送删除请求
-        fetch(`/recommendations/comments/delete/${commentId}/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // 添加淡出动画
-                $commentItem.fadeOut(300, function() {
-                    $(this).remove();
-
-                    // 如果没有更多评论，显示空状态
-                    if ($('#commentsList .comment-item').length === 0) {
-                        $('#commentsList').html(`
-                            <div class="empty-state text-center py-5">
-                                <i class="far fa-comment-dots fa-3x mb-3 text-muted"></i>
-                                <h4>暂无评论</h4>
-                                <p class="text-muted">成为第一个评论这部动漫的人吧！</p>
-                            </div>
-                        `);
-                    }
-                });
-
-                // 显示成功消息
-                showToast('成功', '评论已删除');
-            } else {
-                showToast('错误', data.error || '删除失败，请稍后再试');
-            }
-        })
-        .catch(error => {
-            console.error('评论删除错误:', error);
-            showToast('错误', '服务器错误，请稍后再试');
         });
     });
 
@@ -939,6 +771,12 @@ function createCommentHtml(comment) {
                     <span class="like-count">${comment.like_count}</span>
                 </button>
 
+                <!-- 添加回复按钮 -->
+                <button class="btn btn-sm reply-btn" data-comment-id="${comment.id}" data-username="${comment.user.username}">
+                    <i class="fas fa-reply"></i>
+                    回复
+                </button>
+
                 <div class="dropdown">
                     <button class="btn btn-sm" data-bs-toggle="dropdown">
                         <i class="fas fa-ellipsis-v"></i>
@@ -966,6 +804,30 @@ function createCommentHtml(comment) {
                 <button class="btn btn-sm btn-secondary cancel-edit" data-comment-id="${comment.id}">取消</button>
             </div>
         </div>
+
+        <!-- 添加回复表单容器 -->
+        <div class="reply-form-container d-none" id="reply-form-${comment.id}">
+            <div class="reply-form">
+                <textarea class="form-control reply-content" placeholder="回复 @${comment.user.username}..."></textarea>
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-primary submit-reply" data-comment-id="${comment.id}">
+                        <i class="fas fa-paper-plane"></i> 发送回复
+                    </button>
+                    <button class="btn btn-sm btn-secondary cancel-reply" data-comment-id="${comment.id}">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 添加回复容器 -->
+        <div class="replies-toggle d-none" data-comment-id="${comment.id}">
+            <button class="btn btn-sm btn-link show-replies" data-comment-id="${comment.id}">
+                <i class="fas fa-comments"></i>
+                显示回复
+            </button>
+        </div>
+        <div class="replies-container" id="replies-${comment.id}"></div>
     </div>`;
 }
 
@@ -981,7 +843,7 @@ function showLoginAlert() {
 function getCsrfToken() {
     return document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
            document.cookie.split('; ')
-               .find(row => row.startsWith('csrftoken='))
+               .find(row => row.startswith('csrftoken='))
                ?.split('=')[1];
 }
 
@@ -1007,5 +869,8 @@ function showToast(title, message) {
         $toast.remove();
     }, 3000);
 }
+
+// 暴露函数给全局以便评论互动管理器调用
+window.showToast = showToast;
 </script>
 {% endblock %}

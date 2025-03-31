@@ -117,9 +117,22 @@ class UserComment(TimeStampedModel):
     content = models.TextField(verbose_name="评论内容")
     # 评论时间戳
     timestamp = models.DateTimeField(auto_now_add=True)
-
     # 点赞计数器字段，避免每次查询都要计算关联表
     like_count = models.PositiveIntegerField(default=0, verbose_name="点赞数")
+    # 添加回复计数
+    reply_count = models.PositiveIntegerField(default=0, verbose_name="回复数")
+    # 识别评论类型：原始评论或回复
+    is_reply = models.BooleanField(default=False, verbose_name="是否为回复")
+
+    # 新增：关联到父评论（如果这是一个回复）
+    parent_comment = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='replies',
+        verbose_name="父评论"
+    )
 
     class Meta:
         verbose_name = "用户评论"
@@ -127,15 +140,16 @@ class UserComment(TimeStampedModel):
         indexes = [
             models.Index(fields=['anime', '-timestamp'], name='anime_comment_time_idx'),
             models.Index(fields=['user', '-timestamp'], name='user_comment_time_idx'),
+            models.Index(fields=['parent_comment', '-timestamp'], name='reply_time_idx'),
         ]
         ordering = ['-timestamp']  # 默认按时间降序排列
 
     def __str__(self):
         # 显示评论内容的前20个字符
         preview = self.content[:20] + "..." if len(self.content) > 20 else self.content
+        if self.is_reply and self.parent_comment:
+            return f"{self.user.username} 回复了 {self.parent_comment.user.username}: {preview}"
         return f"{self.user.username}: {preview}"
-# Keep only one version of the UserLike model
-
 class UserLike(TimeStampedModel):
     """
     用户点赞：记录用户对评论的点赞
@@ -162,10 +176,89 @@ class UserLike(TimeStampedModel):
         unique_together = ['user', 'comment']
         indexes = [
             models.Index(fields=['comment', '-timestamp'], name='comment_like_time_idx'),
+            models.Index(fields=['user', '-timestamp'], name='user_like_time_idx'),
         ]
 
     def __str__(self):
+        if self.comment.is_reply:
+            return f"{self.user.username} 点赞了 {self.comment.user.username} 对 {self.comment.parent_comment.user.username} 的回复"
         return f"{self.user.username} 点赞了 {self.comment.user.username} 的评论"
+
+
+class UserInteraction(TimeStampedModel):
+    """
+    用户互动：记录用户之间的互动数据
+    用于分析和可视化用户社交网络
+    """
+    # 互动发起者
+    from_user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='interactions_initiated',
+        verbose_name="互动发起者"
+    )
+    # 互动接收者
+    to_user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='interactions_received',
+        verbose_name="互动接收者"
+    )
+    # 互动类型
+    INTERACTION_TYPES = [
+        ('reply', '评论回复'),
+        ('like', '点赞评论'),
+        ('mention', '提及用户'),
+    ]
+    interaction_type = models.CharField(
+        max_length=10,
+        choices=INTERACTION_TYPES,
+        verbose_name="互动类型"
+    )
+    # 关联的评论（如果有）
+    comment = models.ForeignKey(
+        UserComment,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='interactions',
+        verbose_name="相关评论"
+    )
+    # 关联的点赞（如果有）
+    like = models.ForeignKey(
+        UserLike,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='interactions',
+        verbose_name="相关点赞"
+    )
+    # 互动时间
+    timestamp = models.DateTimeField(auto_now_add=True)
+    # 是否已读
+    is_read = models.BooleanField(default=False, verbose_name="是否已读")
+    # 互动强度（用于分析）
+    strength = models.FloatField(default=1.0, verbose_name="互动强度")
+
+    class Meta:
+        verbose_name = "用户互动"
+        verbose_name_plural = "用户互动列表"
+        indexes = [
+            models.Index(fields=['from_user', '-timestamp'], name='from_user_time_idx'),
+            models.Index(fields=['to_user', '-timestamp'], name='to_user_time_idx'),
+            models.Index(fields=['to_user', 'is_read'], name='user_unread_idx'),
+            models.Index(fields=['interaction_type'], name='interaction_type_idx'),
+        ]
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        action = {
+            'reply': '回复了',
+            'like': '点赞了',
+            'mention': '提及了'
+        }.get(self.interaction_type, '互动了')
+
+        return f"{self.from_user.username} {action} {self.to_user.username}"
 class UserFavorite(TimeStampedModel):
     """
     用户收藏：记录用户收藏的动漫

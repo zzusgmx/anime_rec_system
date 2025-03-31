@@ -3,7 +3,7 @@
   用法: {% render_comment comment %}
 {% endcomment %}
 
-<div class="comment-item">
+<div class="comment-item {% if comment.is_reply %}comment-reply{% endif %}" id="comment-{{ comment.id }}">
     <div class="comment-header">
         <div class="comment-avatar">
             {% if comment.user.profile.avatar %}
@@ -13,7 +13,16 @@
             {% endif %}
         </div>
         <div class="comment-info">
-            <h5 class="comment-author">{{ comment.user.username }}</h5>
+            <h5 class="comment-author">
+                {{ comment.user.username }}
+                {% if comment.is_reply %}
+                    <span class="reply-indicator">
+                        <i class="fas fa-reply"></i>
+                        回复
+                        <a href="#comment-{{ comment.parent_comment.id }}">@{{ comment.parent_comment.user.username }}</a>
+                    </span>
+                {% endif %}
+            </h5>
             <span class="comment-date">{{ comment.timestamp|date:"Y-m-d H:i" }}</span>
         </div>
         <div class="comment-actions">
@@ -22,6 +31,13 @@
                 <i class="{% if user_liked %}fas{% else %}far{% endif %} fa-heart"></i>
                 <span class="like-count">{{ comment.like_count }}</span>
             </button>
+
+            {% if user.is_authenticated %}
+            <button class="btn btn-sm reply-btn" data-comment-id="{{ comment.id }}" data-username="{{ comment.user.username }}">
+                <i class="fas fa-reply"></i>
+                回复
+            </button>
+            {% endif %}
 
             {% if user.is_authenticated and comment.user == user %}
             <div class="dropdown">
@@ -52,4 +68,31 @@
             <button class="btn btn-sm btn-secondary cancel-edit" data-comment-id="{{ comment.id }}">取消</button>
         </div>
     </div>
+
+    {% if not comment.is_reply %}
+    <div class="reply-form-container d-none" id="reply-form-{{ comment.id }}">
+        <div class="reply-form">
+            <textarea class="form-control reply-content" placeholder="回复 @{{ comment.user.username }}..."></textarea>
+            <div class="mt-2">
+                <button class="btn btn-sm btn-primary submit-reply" data-comment-id="{{ comment.id }}">
+                    <i class="fas fa-paper-plane"></i> 发送回复
+                </button>
+                <button class="btn btn-sm btn-secondary cancel-reply" data-comment-id="{{ comment.id }}">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {% if comment.reply_count > 0 %}
+    <div class="replies-toggle" data-comment-id="{{ comment.id }}">
+        <button class="btn btn-sm btn-link show-replies" data-comment-id="{{ comment.id }}">
+            <i class="fas fa-comments"></i>
+            显示全部 {{ comment.reply_count }} 条回复
+        </button>
+    </div>
+    {% endif %}
+
+    <div class="replies-container" id="replies-{{ comment.id }}"></div>
+    {% endif %}
 </div>

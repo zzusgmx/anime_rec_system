@@ -1,13 +1,55 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.db.models import Avg, Count
-from .models import UserRating, UserComment, UserLike, UserFavorite
+from .models import UserRating, UserComment, UserLike, UserFavorite, UserInteraction, AnimeLike
 from users.models import UserPreference, Profile
 from anime.models import Anime
-from django.utils import timezone
-from .models import AnimeLike
-
 # =============== 评分信号处理 ===============
+@receiver(post_save, sender=UserComment)
+def handle_comment_reply(sender, instance, created, **kwargs):
+    """处理评论回复创建事件"""
+    if created and instance.is_reply and instance.parent_comment:
+        # 更新父评论的回复计数
+        parent_comment = instance.parent_comment
+        parent_comment.reply_count = UserComment.objects.filter(parent_comment=parent_comment).count()
+        parent_comment.save(update_fields=['reply_count'])
+
+        # 更新用户的回复计数
+        user_profile = instance.user.profile
+        user_profile.replies_count = UserComment.objects.filter(user=instance.user, is_reply=True).count()
+        user_profile.save(update_fields=['replies_count'])
+
+        # 更新用户社交活跃度
+        user_profile.calculate_social_activity()
+        user_profile.save(update_fields=['social_activity_score'])
+
+        # 创建用户互动记录
+        UserInteraction.objects.create(
+            from_user=instance.user,
+            to_user=parent_comment.user,
+            interaction_type='reply',
+            comment=instance,
+            strength=1.2  # 回复互动强度较高
+        )
+
+
+@receiver(post_delete, sender=UserComment)
+def handle_comment_reply_deletion(sender, instance, **kwargs):
+    """处理评论回复删除事件"""
+    if instance.is_reply and instance.parent_comment:
+        # 更新父评论的回复计数
+        parent_comment = instance.parent_comment
+        parent_comment.reply_count = UserComment.objects.filter(parent_comment=parent_comment).count()
+        parent_comment.save(update_fields=['reply_count'])
+
+        # 更新用户的回复计数
+        user_profile = instance.user.profile
+        user_profile.replies_count = UserComment.objects.filter(user=instance.user, is_reply=True).count()
+        user_profile.save(update_fields=['replies_count'])
+
+        # 更新用户社交活跃度
+        user_profile.calculate_social_activity()
+        user_profile.save(update_fields=['social_activity_score'])
 
 @receiver(post_save, sender=UserRating)
 def update_anime_rating_stats(sender, instance, created, **kwargs):
@@ -122,6 +164,8 @@ def handle_anime_like_deletion(sender, instance, **kwargs):
     # 更新用户偏好
     update_user_preference(instance.user, anime)
 
+
+# 修改点赞信号处理
 @receiver(post_save, sender=UserLike)
 def handle_like_creation(sender, instance, created, **kwargs):
     """处理点赞创建事件"""
@@ -132,8 +176,31 @@ def handle_like_creation(sender, instance, created, **kwargs):
         comment.like_count = like_count
         comment.save(update_fields=['like_count'])
 
-        # 更新用户偏好 (对评论所属动漫的偏好)
-        update_user_preference(instance.user, comment.anime)
+        # 更新点赞用户的统计
+        liker_profile = instance.user.profile
+        liker_profile.likes_given_count = UserLike.objects.filter(user=instance.user).count()
+        liker_profile.save(update_fields=['likes_given_count'])
+
+        # 更新被点赞用户的统计
+        liked_user_profile = comment.user.profile
+        liked_user_profile.likes_received_count = UserLike.objects.filter(comment__user=comment.user).count()
+        liked_user_profile.save(update_fields=['likes_received_count'])
+
+        # 更新两位用户的分数
+        liker_profile.calculate_social_activity()
+        liked_user_profile.calculate_influence()
+        liker_profile.save(update_fields=['social_activity_score'])
+        liked_user_profile.save(update_fields=['influence_score'])
+
+        # 创建用户互动记录
+        UserInteraction.objects.create(
+            from_user=instance.user,
+            to_user=comment.user,
+            interaction_type='like',
+            comment=comment,
+            like=instance,
+            strength=0.8  # 点赞互动强度适中
+        )
 
 
 @receiver(post_delete, sender=UserLike)
@@ -145,10 +212,21 @@ def handle_like_deletion(sender, instance, **kwargs):
     comment.like_count = like_count
     comment.save(update_fields=['like_count'])
 
-    # 更新用户偏好
-    update_user_preference(instance.user, comment.anime)
+    # 更新点赞用户的统计
+    liker_profile = instance.user.profile
+    liker_profile.likes_given_count = UserLike.objects.filter(user=instance.user).count()
+    liker_profile.save(update_fields=['likes_given_count'])
 
+    # 更新被点赞用户的统计
+    liked_user_profile = comment.user.profile
+    liked_user_profile.likes_received_count = UserLike.objects.filter(comment__user=comment.user).count()
+    liked_user_profile.save(update_fields=['likes_received_count'])
 
+    # 更新两位用户的分数
+    liker_profile.calculate_social_activity()
+    liked_user_profile.calculate_influence()
+    liker_profile.save(update_fields=['social_activity_score'])
+    liked_user_profile.save(update_fields=['influence_score'])
 # =============== 收藏信号处理 ===============
 
 @receiver(post_save, sender=UserFavorite)

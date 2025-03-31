@@ -1,25 +1,28 @@
 # recommendation/views.py
-from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.contrib import messages
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 import os
+from anime.models import Anime
+from .models import RecommendationCache, UserRating
+from .engine.recommendation_engine import recommendation_engine
+from django.core.paginator import PageNotAnInteger, EmptyPage
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_POST, require_http_methods
+from django.views.decorators.http import require_POST, require_GET
 import json
 import logging
 import traceback
-from anime.models import Anime
-from .models import RecommendationCache, UserRating, UserComment, UserLike, UserFavorite
-from users.models import UserBrowsing
-from django.utils import timezone
-from datetime import timedelta
-from .engine.recommendation_engine import recommendation_engine
-from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+from .models import UserInteraction
+from .models import UserComment, UserLike, UserFavorite
+from users.models import Profile, UserBrowsing
+from django.template.loader import render_to_string
+from django.db.models import Q
+from django.contrib.auth.models import User
+
 # 配置日志记录器
 logger = logging.getLogger('django')
 
@@ -462,8 +465,6 @@ def visualization_likes_analysis(request):
             'success': False,
             'error': f'获取点赞分析数据失败: {str(e)}'
         }, status=500)
-
-
 @login_required
 def user_activity_dashboard(request):
     """
@@ -1951,8 +1952,6 @@ def visualization_viewing_trends(request):
             'success': False,
             'error': f'获取观看趋势数据失败: {str(e)}'
         }, status=500)
-
-
 @login_required
 @require_POST
 def toggle_favorite(request, anime_id):
@@ -1991,4 +1990,567 @@ def toggle_favorite(request, anime_id):
         return JsonResponse({
             'success': False,
             'error': '操作失败，请稍后再试'
+        }, status=500)
+
+
+# 用户互动页面视图
+@login_required
+def user_interactions(request):
+    """
+    用户互动页面：展示用户之间的互动数据，包括评论回复、点赞等
+    """
+    try:
+        # 获取基本统计
+        interaction_stats = {
+            'total_interactions': UserInteraction.objects.count(),
+            'latest_interactions': UserInteraction.objects.order_by('-timestamp')[:5],
+        }
+
+        context = {
+            'page_title': '用户互动',
+            'interaction_stats': interaction_stats
+        }
+
+        return render(request, 'recommendation/user_interactions.html', context)
+    except Exception as e:
+        logger.error(f"用户互动页面异常: {str(e)}\n{traceback.format_exc()}")
+        return redirect('recommendation:recommendations')
+
+
+# 用户互动网络可视化页面
+@login_required
+def user_interaction_network(request):
+    """
+    用户互动网络可视化页面：展示用户之间的互动关系网络图
+    """
+    try:
+        context = {
+            'page_title': '互动网络',
+        }
+        return render(request, 'recommendation/user_interaction_network.html', context)
+    except Exception as e:
+        logger.error(f"用户互动网络页面异常: {str(e)}\n{traceback.format_exc()}")
+        return redirect('recommendation:user_interactions')
+
+
+# 添加评论回复API
+@login_required
+@require_POST
+def add_comment_reply(request, comment_id):
+    """
+    添加评论回复API：处理用户对评论的回复
+    """
+    try:
+        # 获取父评论
+        parent_comment = get_object_or_404(UserComment, id=comment_id)
+
+        # 解析请求数据
+        data = json.loads(request.body)
+        content = data.get('content', '').strip()
+
+        # 验证内容
+        if not content:
+            return JsonResponse({
+                'success': False,
+                'error': '回复内容不能为空'
+            }, status=400)
+
+        # 创建新回复
+        reply = UserComment.objects.create(
+            user=request.user,
+            anime=parent_comment.anime,
+            content=content,
+            is_reply=True,
+            parent_comment=parent_comment
+        )
+
+        # 更新父评论的回复计数
+        parent_comment.reply_count = UserComment.objects.filter(parent_comment=parent_comment).count()
+        parent_comment.save(update_fields=['reply_count'])
+
+        # 创建互动记录
+        UserInteraction.objects.create(
+            from_user=request.user,
+            to_user=parent_comment.user,
+            interaction_type='reply',
+            comment=reply,
+            strength=1.2  # 回复互动强度较高
+        )
+
+        # 返回成功响应
+        return JsonResponse({
+            'success': True,
+            'reply_id': reply.id,
+            'reply_count': parent_comment.reply_count,
+            'message': '回复已提交'
+        })
+    except Exception as e:
+        logger.error(f"添加评论回复失败: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': '添加回复失败，请稍后再试'
+        }, status=500)
+
+
+# 获取评论回复API
+@require_GET
+def get_comment_replies(request, comment_id):
+    """
+    获取评论回复API：获取某个评论下的所有回复
+    """
+    try:
+        # 获取父评论
+        parent_comment = get_object_or_404(UserComment, id=comment_id)
+
+        # 获取回复列表
+        replies = UserComment.objects.filter(parent_comment=parent_comment).order_by('timestamp')
+
+        # 为登录用户获取点赞信息
+        user_likes = {}
+        if request.user.is_authenticated:
+            user_likes = {
+                like.comment_id: True for like in UserLike.objects.filter(
+                    user=request.user,
+                    comment__in=replies
+                )
+            }
+
+        # 渲染回复HTML
+        replies_html = ""
+        for reply in replies:
+            # 针对每个回复，判断当前用户是否已点赞
+            user_liked = user_likes.get(reply.id, False)
+
+            # 使用评论模板渲染每条回复
+            reply_html = render_to_string('recommendation/partials/comment.html', {
+                'comment': reply,
+                'user': request.user,
+                'user_liked': user_liked
+            })
+
+            replies_html += reply_html
+
+        return JsonResponse({
+            'success': True,
+            'replies': replies_html,
+            'count': replies.count()
+        })
+    except Exception as e:
+        logger.error(f"获取评论回复失败: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': '获取回复失败，请稍后再试'
+        }, status=500)
+
+
+# 互动统计可视化API
+@login_required
+def visualization_interaction_stats(request):
+    """
+    互动统计可视化API：提供用户互动类型分布的数据
+    """
+    try:
+        user = request.user
+
+        # 获取用户发出的互动
+        sent_interactions = UserInteraction.objects.filter(from_user=user)
+
+        # 统计各类型互动数量
+        like_count = sent_interactions.filter(interaction_type='like').count()
+        reply_count = sent_interactions.filter(interaction_type='reply').count()
+        mention_count = sent_interactions.filter(interaction_type='mention').count()
+
+        # 构建数据
+        stats = [
+            {
+                'name': '点赞互动',
+                'value': like_count,
+                'color': '#ef4444'  # 红色
+            },
+            {
+                'name': '回复互动',
+                'value': reply_count,
+                'color': '#10b981'  # 绿色
+            },
+            {
+                'name': '提及互动',
+                'value': mention_count,
+                'color': '#3b82f6'  # 蓝色
+            }
+        ]
+
+        return JsonResponse({
+            'success': True,
+            'stats': stats
+        })
+    except Exception as e:
+        logger.error(f"互动统计可视化API错误: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'获取互动统计数据失败: {str(e)}'
+        }, status=500)
+
+
+# 用户关系网络可视化API
+@login_required
+def visualization_user_network(request):
+    """
+    用户关系网络可视化API：提供用户之间互动关系的网络图数据
+    """
+    try:
+        user = request.user
+
+        # 获取与当前用户有互动的所有用户
+        # 包括用户发出的互动和收到的互动
+        interactions = UserInteraction.objects.filter(
+            Q(from_user=user) | Q(to_user=user)
+        ).select_related('from_user', 'to_user')
+
+        if not interactions.exists():
+            return JsonResponse({
+                'success': True,
+                'network': {'nodes': [], 'links': []}
+            })
+
+        # 创建节点和连接
+        nodes = {}
+        links = []
+
+        # 当前用户节点
+        nodes[user.id] = {
+            'id': user.id,
+            'name': user.username,
+            'value': 10,  # 当前用户节点较大
+            'category': 0  # 当前用户类别
+        }
+
+        # 处理所有互动
+        for interaction in interactions:
+            from_id = interaction.from_user.id
+            to_id = interaction.to_user.id
+
+            # 添加发起互动用户节点(如果不是当前用户)
+            if from_id != user.id and from_id not in nodes:
+                nodes[from_id] = {
+                    'id': from_id,
+                    'name': interaction.from_user.username,
+                    'value': 5,  # 其他用户节点较小
+                    'category': 1  # 其他用户类别
+                }
+
+            # 添加接收互动用户节点(如果不是当前用户)
+            if to_id != user.id and to_id not in nodes:
+                nodes[to_id] = {
+                    'id': to_id,
+                    'name': interaction.to_user.username,
+                    'value': 5,
+                    'category': 1
+                }
+
+            # 添加连接
+            # 使用互动类型为连接类型
+            interaction_type = interaction.interaction_type
+            links.append({
+                'source': from_id,
+                'target': to_id,
+                'value': interaction.strength,
+                'type': interaction_type
+            })
+
+        # 构建网络数据
+        network = {
+            'nodes': list(nodes.values()),
+            'links': links
+        }
+
+        return JsonResponse({
+            'success': True,
+            'network': network
+        })
+    except Exception as e:
+        logger.error(f"用户关系网络可视化API错误: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'获取用户网络数据失败: {str(e)}'
+        }, status=500)
+
+
+# 互动时间线可视化API
+@login_required
+def visualization_interaction_timeline(request):
+    """
+    互动时间线可视化API：提供用户互动随时间变化的趋势数据
+    """
+    try:
+        user = request.user
+
+        # 获取过去30天的日期范围
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=29)
+
+        # 创建日期列表
+        date_range = []
+        current_date = start_date
+        while current_date <= end_date:
+            date_range.append(current_date.isoformat())
+            current_date += timedelta(days=1)
+
+        # 初始化结果数据
+        timeline_data = []
+        for date_str in date_range:
+            timeline_data.append({
+                'date': date_str,
+                'likes': 0,
+                'replies': 0,
+                'mentions': 0
+            })
+
+        # 获取指定日期范围内的互动数据
+        interactions = UserInteraction.objects.filter(
+            from_user=user,
+            timestamp__date__gte=start_date,
+            timestamp__date__lte=end_date
+        )
+
+        # 统计每天不同类型的互动次数
+        date_dict = {date_str: i for i, date_str in enumerate(date_range)}
+
+        for interaction in interactions:
+            date_str = interaction.timestamp.date().isoformat()
+            if date_str in date_dict:
+                index = date_dict[date_str]
+                interaction_type = interaction.interaction_type
+
+                if interaction_type == 'like':
+                    timeline_data[index]['likes'] += 1
+                elif interaction_type == 'reply':
+                    timeline_data[index]['replies'] += 1
+                elif interaction_type == 'mention':
+                    timeline_data[index]['mentions'] += 1
+
+        return JsonResponse({
+            'success': True,
+            'timeline': timeline_data
+        })
+    except Exception as e:
+        logger.error(f"互动时间线可视化API错误: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'获取互动时间线数据失败: {str(e)}'
+        }, status=500)
+
+
+# 用户互动摘要API
+@login_required
+def user_interaction_summary(request):
+    """
+    用户互动摘要API：提供用户互动的汇总数据和最近互动
+    """
+    try:
+        user = request.user
+
+        # 获取发出的互动
+        sent_interactions = UserInteraction.objects.filter(from_user=user)
+
+        # 获取收到的互动
+        received_interactions = UserInteraction.objects.filter(to_user=user)
+
+        # 统计点赞互动
+        likes_given = sent_interactions.filter(interaction_type='like').count()
+        likes_received = received_interactions.filter(interaction_type='like').count()
+
+        # 统计回复互动
+        replies_given = sent_interactions.filter(interaction_type='reply').count()
+        replies_received = received_interactions.filter(interaction_type='reply').count()
+
+        # 获取用户影响力
+        profile = user.profile
+        influence_score = profile.influence_score
+
+        # 获取用户最近的互动
+        recent_interactions = UserInteraction.objects.filter(
+            Q(from_user=user) | Q(to_user=user)
+        ).select_related('from_user', 'to_user', 'comment').order_by('-timestamp')[:10]
+
+        # 处理互动数据，添加必要信息
+        interactions_data = []
+        for interaction in recent_interactions:
+            interaction_data = {
+                'id': interaction.id,
+                'type': interaction.interaction_type,
+                'timestamp': interaction.timestamp.isoformat(),
+                'from_user': {
+                    'id': interaction.from_user.id,
+                    'username': interaction.from_user.username,
+                    'avatar': interaction.from_user.profile.avatar.url if interaction.from_user.profile.avatar else None
+                },
+                'to_user': {
+                    'id': interaction.to_user.id,
+                    'username': interaction.to_user.username,
+                    'avatar': interaction.to_user.profile.avatar.url if interaction.to_user.profile.avatar else None
+                }
+            }
+
+            # 添加评论内容信息
+            if interaction.comment:
+                interaction_data['comment_content'] = interaction.comment.content
+                interaction_data['anime_title'] = interaction.comment.anime.title
+                interaction_data['anime_url'] = f'/anime/{interaction.comment.anime.id}/'
+
+            interactions_data.append(interaction_data)
+
+        # 构建响应数据
+        summary = {
+            'likes_given': likes_given,
+            'likes_received': likes_received,
+            'replies_given': replies_given,
+            'replies_received': replies_received,
+            'total_sent': sent_interactions.count(),
+            'total_received': received_interactions.count(),
+            'influence_score': influence_score
+        }
+
+        return JsonResponse({
+            'success': True,
+            'summary': summary,
+            'interactions': interactions_data
+        })
+    except Exception as e:
+        logger.error(f"用户互动摘要API错误: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'获取互动摘要数据失败: {str(e)}'
+        }, status=500)
+
+
+# 获取最近互动API
+@login_required
+def recent_interactions(request):
+    """
+    获取最近互动API：提供系统中最近的用户互动数据
+    """
+    try:
+        # 获取最近的50条互动记录
+        interactions = UserInteraction.objects.select_related(
+            'from_user', 'to_user', 'comment', 'comment__anime'
+        ).order_by('-timestamp')[:50]
+
+        # 处理互动数据
+        interactions_data = []
+        for interaction in interactions:
+            # 基本互动信息
+            interaction_data = {
+                'id': interaction.id,
+                'type': interaction.interaction_type,
+                'timestamp': interaction.timestamp.isoformat(),
+                'from_user': {
+                    'id': interaction.from_user.id,
+                    'username': interaction.from_user.username,
+                    'avatar': interaction.from_user.profile.avatar.url if interaction.from_user.profile.avatar else None
+                },
+                'to_user': {
+                    'id': interaction.to_user.id,
+                    'username': interaction.to_user.username,
+                    'avatar': interaction.to_user.profile.avatar.url if interaction.to_user.profile.avatar else None
+                }
+            }
+
+            # 添加评论和动漫信息
+            if interaction.comment:
+                interaction_data['comment_content'] = interaction.comment.content[:100] + '...' if len(
+                    interaction.comment.content) > 100 else interaction.comment.content
+
+                if interaction.comment.anime:
+                    interaction_data['anime_title'] = interaction.comment.anime.title
+                    interaction_data['anime_url'] = f'/anime/{interaction.comment.anime.id}/'
+
+            interactions_data.append(interaction_data)
+
+        return JsonResponse({
+            'success': True,
+            'interactions': interactions_data
+        })
+    except Exception as e:
+        logger.error(f"获取最近互动API错误: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'获取最近互动数据失败: {str(e)}'
+        }, status=500)
+
+
+# 获取最活跃互动用户API
+@login_required
+def top_interactive_users(request):
+    """
+    获取最活跃互动用户API：提供系统中最活跃的用户数据
+    """
+    try:
+        # 获取拥有最多互动(发出+接收)的用户
+        top_users_data = {}
+
+        # 统计发出的互动
+        sent_interactions = UserInteraction.objects.values('from_user').annotate(
+            sent_count=Count('id')
+        ).order_by('-sent_count')[:20]
+
+        for item in sent_interactions:
+            user_id = item['from_user']
+            if user_id not in top_users_data:
+                top_users_data[user_id] = {'sent': 0, 'received': 0}
+            top_users_data[user_id]['sent'] = item['sent_count']
+
+        # 统计收到的互动
+        received_interactions = UserInteraction.objects.values('to_user').annotate(
+            received_count=Count('id')
+        ).order_by('-received_count')[:20]
+
+        for item in received_interactions:
+            user_id = item['to_user']
+            if user_id not in top_users_data:
+                top_users_data[user_id] = {'sent': 0, 'received': 0}
+            top_users_data[user_id]['received'] = item['received_count']
+
+        # 计算总互动数并排序
+        user_ids = []
+        for user_id, counts in top_users_data.items():
+            total = counts['sent'] + counts['received']
+            user_ids.append((user_id, total))
+
+        # 取前20名
+        top_user_ids = [uid for uid, _ in sorted(user_ids, key=lambda x: x[1], reverse=True)[:20]]
+
+        # 获取用户详细信息
+        users_info = []
+        user_objects = User.objects.filter(id__in=top_user_ids).select_related('profile')
+
+        for user in user_objects:
+            # 获取用户的统计数据
+            profile = user.profile
+
+            user_info = {
+                'id': user.id,
+                'username': user.username,
+                'avatar': user.profile.avatar.url if user.profile.avatar else None,
+                'influence_score': profile.influence_score,
+                'social_activity_score': profile.social_activity_score,
+                'comment_count': profile.comment_count,
+                'replies_count': profile.replies_count,
+                'likes_received_count': profile.likes_received_count,
+                'likes_given_count': profile.likes_given_count
+            }
+
+            users_info.append(user_info)
+
+        # 根据影响力和活跃度重新排序
+        users_info.sort(key=lambda x: (x['influence_score'] + x['social_activity_score']), reverse=True)
+
+        return JsonResponse({
+            'success': True,
+            'users': users_info
+        })
+    except Exception as e:
+        logger.error(f"获取最活跃互动用户API错误: {str(e)}\n{traceback.format_exc()}")
+        return JsonResponse({
+            'success': False,
+            'error': f'获取活跃用户数据失败: {str(e)}'
         }, status=500)

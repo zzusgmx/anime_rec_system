@@ -12,6 +12,19 @@ urlpatterns = [
 
     # 推荐API
     path('api/recommendations/', views.RecommendationAPIView.as_view(), name='api_recommendations'),
+    path('user-interactions/', views.user_interactions, name='user_interactions'),
+    path('user-interactions/network/', views.user_interaction_network, name='user_interaction_network'),
+    # 评论回复API
+    path('comments/reply/<int:comment_id>/', views.add_comment_reply, name='add_comment_reply'),
+    path('comments/replies/<int:comment_id>/', views.get_comment_replies, name='get_comment_replies'),
+    # 互动可视化API
+    path('api/visualization/interaction-stats/', views.visualization_interaction_stats, name='visualization_interaction_stats'),
+    path('api/visualization/user-network/', views.visualization_user_network, name='visualization_user_network'),
+    path('api/visualization/interaction-timeline/', views.visualization_interaction_timeline, name='visualization_interaction_timeline'),
+    # 用户互动统计
+    path('api/interactions/summary/', views.user_interaction_summary, name='user_interaction_summary'),
+    path('api/interactions/recent/', views.recent_interactions, name='recent_interactions'),
+    path('api/interactions/top-users/', views.top_interactive_users, name='top_interactive_users'),
 
     # 用户仪表板
     path('dashboard/', views.user_activity_dashboard, name='user_dashboard'),

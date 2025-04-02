@@ -5,6 +5,30 @@ from .models import UserRating, UserComment, UserLike, UserFavorite, UserInterac
 from users.models import UserPreference, Profile
 from anime.models import Anime
 # =============== 评分信号处理 ===============
+@receiver(post_save, sender=UserRating)
+def update_model_weights_on_rating(sender, instance, created, **kwargs):
+    """
+    当用户提交新评分时，更新模型权重
+    """
+    try:
+        # 避免递归调用
+        if getattr(instance, '_skip_weight_update', False):
+            return
+
+        # 获取推荐引擎
+        from recommendation.engine.recommendation_engine import recommendation_engine
+
+        # 更新模型权重
+        recommendation_engine.update_model_weights_from_feedback(
+            instance.user.id,
+            instance.anime.id,
+            instance.rating
+        )
+
+        logger.info(f"用户 {instance.user.id} 对动漫 {instance.anime.id} 的评分已用于更新模型权重")
+
+    except Exception as e:
+        logger.error(f"更新模型权重失败: {str(e)}")
 @receiver(post_save, sender=UserComment)
 def handle_comment_reply(sender, instance, created, **kwargs):
     """处理评论回复创建事件"""

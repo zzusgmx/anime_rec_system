@@ -34,66 +34,6 @@ class RecommendationEngine:
     - 基于内容 (Content-Based)：基于物品特征相似度
     - 混合模型 (Hybrid)：动态权重融合策略
     """
-
-    def _ml_recommendations(self, user_id, limit=10):
-        """
-        使用GBDT机器学习模型生成推荐
-        """
-        try:
-            # 加载GBDT模型和编码器
-            model_dir = Path(__file__).parent / 'models'
-            model_path = model_dir / 'gbdt_model.joblib'
-            encoders_path = model_dir / 'gbdt_encoders.pkl'
-
-            if not (model_path.exists() and encoders_path.exists()):
-                logger.error(f"GBDT模型文件不存在: {model_path} 或 {encoders_path}")
-                # 如果模型不存在，回退到协同过滤
-                logger.warning("GBDT模型不可用，回退到协同过滤")
-                return self._collaborative_filtering(user_id, limit)
-
-            # 加载模型和编码器
-            model = joblib.load(model_path)
-            encoders = pickle.load(open(encoders_path, 'rb'))
-
-            # 准备用户特征
-            user_features = self._extract_user_features(user_id)
-
-            # 获取所有动漫
-            all_anime = self._get_all_anime()
-
-            # 为用户生成所有动漫的预测评分
-            predictions = []
-            for anime in all_anime:
-                # 跳过用户已评分的动漫
-                if self._has_user_rated(user_id, anime.id):
-                    continue
-
-                # 构建预测特征
-                features = self._combine_features(user_features, self._extract_anime_features(anime))
-
-                # 编码特征
-                encoded_features = self._encode_features(features, encoders)
-
-                # 预测
-                try:
-                    prediction = model.predict([encoded_features])[0]
-                    predictions.append((anime.id, prediction))
-                except Exception as e:
-                    logger.error(f"GBDT预测错误 (动漫ID={anime.id}): {str(e)}")
-                    continue
-
-            # 排序并返回前limit个
-            predictions.sort(key=lambda x: x[1], reverse=True)
-            return predictions[:limit]
-
-        except Exception as e:
-            logger.error(f"GBDT推荐错误: {str(e)}")
-            # 错误回退到混合算法
-            logger.warning("ML推荐失败，回退到混合算法")
-            cf_recs = self._collaborative_filtering(user_id, limit)
-            cb_recs = self._content_based(user_id, limit)
-            return self._hybrid_merge(cf_recs, cb_recs, limit)
-
     def _extract_user_features(self, user_id):
         """提取用户特征"""
         # 实现用户特征提取逻辑
@@ -202,31 +142,113 @@ class RecommendationEngine:
             return self._popular_recommendations(limit)
 
     # 添加机器学习推荐方法
+    # Keep only one definition of _ml_recommendations, combining functionality from both versions
     def _ml_recommendations(self, user_id, limit=10):
         """
-        机器学习推荐算法
-
-        使用GBDT模型进行精准的个性化推荐
+        Generate recommendations using GBDT machine learning model - with better error handling
         """
-        if not self.ml_engine:
-            logger.warning("ML引擎离线，回退到协同过滤")
-            return self._collaborative_filtering(user_id, limit)
-
         try:
-            # 获取ML推荐
-            recommendations = self.ml_engine.get_recommendations(user_id, limit * 2)
+            # Try using the multi-source trainer for ensemble recommendations
+            try:
+                from recommendation.engine.multi_source_trainer import QuantumEnsembleTrainer
+                ensemble_trainer = QuantumEnsembleTrainer()
+                recommendations = ensemble_trainer.get_ensemble_recommendations(user_id, limit * 2)
 
-            # 如果ML推荐不足，补充协同过滤推荐
-            if len(recommendations) < limit:
-                cf_recs = self._collaborative_filtering(user_id, limit - len(recommendations))
-                recommendations.extend(cf_recs)
+                if recommendations:
+                    logger.info(f"Generated multi-source fusion recommendations for user {user_id}")
+                    return recommendations
+                else:
+                    logger.warning("Multi-source fusion recommendations failed, falling back to standard GBDT")
+            except Exception as e:
+                logger.warning(f"Error using ensemble trainer: {str(e)}")
 
-            # 确保不超过limit
-            return recommendations[:limit]
+            # Load GBDT model and encoders
+            model_dir = Path(__file__).parent / 'models'
+            model_path = model_dir / 'gbdt_model.joblib'
+            encoders_path = model_dir / 'gbdt_encoders.pkl'
+
+            if not (model_path.exists() and encoders_path.exists()):
+                logger.error(f"GBDT model files not available: {model_path} or {encoders_path}")
+                return self._collaborative_filtering(user_id, limit)
+
+            # Load model with error handling
+            try:
+                model = joblib.load(model_path)
+                with open(encoders_path, 'rb') as f:
+                    encoders = pickle.load(f)
+            except Exception as e:
+                logger.error(f"Error loading GBDT model or encoders: {str(e)}")
+                return self._collaborative_filtering(user_id, limit)
+
+            # Extract user features
+            user_features = self._extract_user_features(user_id)
+
+            # Get all anime
+            all_anime = self._get_all_anime()
+
+            # Generate predicted ratings for all anime for this user
+            predictions = []
+            skipped_count = 0
+
+            for anime in all_anime:
+                # Skip anime the user has already rated
+                if self._has_user_rated(user_id, anime.id):
+                    continue
+
+                # Build prediction features
+                try:
+                    features = self._combine_features(user_features, self._extract_anime_features(anime))
+                    encoded_features = self._encode_features(features, encoders)
+                    prediction = model.predict([encoded_features])[0]
+                    predictions.append((anime.id, prediction))
+                except Exception as e:
+                    skipped_count += 1
+                    # Only log every 100 skipped anime to prevent log spam
+                    if skipped_count <= 3 or skipped_count % 100 == 0:
+                        logger.debug(f"Error predicting for anime {anime.id}: {str(e)}")
+                    continue
+
+            if skipped_count > 0:
+                logger.warning(f"Skipped {skipped_count} anime due to prediction errors")
+
+            # Sort and return top recommendations
+            predictions.sort(key=lambda x: x[1], reverse=True)
+            return predictions[:limit]
 
         except Exception as e:
-            logger.error(f"ML推荐引擎故障: {str(e)}")
-            return self._collaborative_filtering(user_id, limit)
+            logger.error(f"GBDT recommendation error: {str(e)}")
+            # Fall back to hybrid algorithm on error
+            logger.warning("ML recommendations failed, falling back to hybrid algorithm")
+            cf_recs = self._collaborative_filtering(user_id, limit)
+            cb_recs = self._content_based(user_id, limit)
+            return self._hybrid_merge(cf_recs, cb_recs, limit)
+
+    # 添加这个方法，处理用户反馈，动态调整模型权重
+    def update_model_weights_from_feedback(self, user_id, anime_id, actual_rating):
+        """
+        根据用户实际评分更新模型权重
+
+        参数:
+            user_id: 用户ID
+            anime_id: 动漫ID
+            actual_rating: 用户实际评分
+        """
+        try:
+            # 获取GBDT推荐器
+            from recommendation.engine.models.ml_engine import GBDTRecommender
+            gbdt = GBDTRecommender()
+
+            # 加载模型
+            if not gbdt.load_model():
+                logger.warning("无法加载模型，无法更新权重")
+                return
+
+            # 更新权重
+            gbdt.update_weights_from_feedback(user_id, anime_id, actual_rating)
+            logger.info(f"模型权重已根据用户 {user_id} 对动漫 {anime_id} 的评分 {actual_rating} 进行更新")
+
+        except Exception as e:
+            logger.error(f"更新模型权重失败: {str(e)}")
 
     def _collaborative_filtering(self, user_id, limit=10):
         """

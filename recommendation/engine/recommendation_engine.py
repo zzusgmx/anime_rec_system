@@ -77,21 +77,37 @@ class RecommendationEngine:
         """
         self.use_cache = use_cache
         self.cache_ttl = cache_ttl
-        # 初始化机器学习引擎(如可用)
+
+        # 简化ML引擎初始化，不再强制使用GBDT
         self.ml_engine = None
+        self.ml_model_type = "未知"
+
         if ML_ENGINE_AVAILABLE:
             try:
-                self.ml_engine = GBDTRecommender()
-                # 尝试加载模型
-                if not self.ml_engine.load_model():
-                    # 模型不存在，尝试训练
-                    logger.info("GBDT模型不存在，尝试即时训练...")
-                    self.ml_engine.train_model()
+                # 检测是否存在任何可用模型
+                model_dir = Path(__file__).parent / 'models'
+                model_types = [
+                    (model_dir / 'balanced_model.joblib', "平衡模型"),
+                    (model_dir / 'accurate_model.joblib', "最准确模型"),
+                    (model_dir / 'gbdt_model.joblib', "标准GBDT模型")
+                ]
+
+                for model_path, model_name in model_types:
+                    if model_path.exists():
+                        self.ml_model_type = model_name
+                        break
+
+                if self.ml_model_type != "未知":
+                    logger.info(f"推荐系统将使用: {self.ml_model_type}")
+                    self.ml_engine = True  # 只需要标记ML引擎可用
+                else:
+                    logger.warning("未找到可用的机器学习模型")
             except Exception as e:
                 logger.error(f"初始化ML引擎失败: {str(e)}")
                 self.ml_engine = None
 
-        logger.info("量子态推荐引擎初始化完毕，ML状态: %s", "在线" if self.ml_engine else "离线")
+        logger.info("量子态推荐引擎初始化完毕，ML状态: %s",
+                    f"在线 ({self.ml_model_type})" if self.ml_engine else "离线")
 
     def get_recommendations_for_user(self, user_id, limit=10, strategy='hybrid'):
         """
@@ -145,80 +161,125 @@ class RecommendationEngine:
     # Keep only one definition of _ml_recommendations, combining functionality from both versions
     def _ml_recommendations(self, user_id, limit=10):
         """
-        Generate recommendations using GBDT machine learning model - with better error handling
+        基于机器学习模型生成推荐 - 增强版
+
+        支持从compare_models.py生成的最佳模型中加载
+
+        Args:
+            user_id: 用户ID
+            limit: 推荐数量限制
+
+        Returns:
+            list: [(anime_id, score), ...] 格式的推荐列表
         """
         try:
-            # Try using the multi-source trainer for ensemble recommendations
+            # 尝试使用多源训练器获取集成推荐
             try:
                 from recommendation.engine.multi_source_trainer import QuantumEnsembleTrainer
                 ensemble_trainer = QuantumEnsembleTrainer()
                 recommendations = ensemble_trainer.get_ensemble_recommendations(user_id, limit * 2)
 
                 if recommendations:
-                    logger.info(f"Generated multi-source fusion recommendations for user {user_id}")
+                    logger.info(f"为用户 {user_id} 生成多源融合推荐")
                     return recommendations
                 else:
-                    logger.warning("Multi-source fusion recommendations failed, falling back to standard GBDT")
+                    logger.warning("多源融合推荐失败，回退到模型推荐")
             except Exception as e:
-                logger.warning(f"Error using ensemble trainer: {str(e)}")
+                logger.warning(f"使用集成训练器时出错: {str(e)}")
 
-            # Load GBDT model and encoders
+            # 加载机器学习模型和编码器
             model_dir = Path(__file__).parent / 'models'
-            model_path = model_dir / 'gbdt_model.joblib'
-            encoders_path = model_dir / 'gbdt_encoders.pkl'
 
-            if not (model_path.exists() and encoders_path.exists()):
-                logger.error(f"GBDT model files not available: {model_path} or {encoders_path}")
+            # 按优先级尝试加载不同模型
+            model_types = [
+                ('balanced', '平衡模型'),
+                ('accurate', '最准确模型'),
+                ('standard', '标准模型')
+            ]
+
+            model = None
+            encoders = None
+            model_name = None
+
+            for model_type, display_name in model_types:
+                if model_type == 'standard':
+                    model_path = model_dir / 'gbdt_model.joblib'
+                    encoders_path = model_dir / 'gbdt_encoders.pkl'
+                else:
+                    model_path = model_dir / f'{model_type}_model.joblib'
+                    encoders_path = model_dir / f'{model_type}_feature_names.pkl'
+
+                if model_path.exists() and encoders_path.exists():
+                    try:
+                        logger.info(f"尝试加载{display_name}")
+                        model = joblib.load(model_path)
+                        with open(encoders_path, 'rb') as f:
+                            encoders = pickle.load(f)
+                        model_name = display_name
+                        break
+                    except Exception as e:
+                        logger.error(f"加载{display_name}失败: {str(e)}")
+
+            # 如果没有可用模型，回退到协同过滤
+            if model is None:
+                logger.error("找不到任何可用的机器学习模型，回退到协同过滤推荐")
                 return self._collaborative_filtering(user_id, limit)
 
-            # Load model with error handling
-            try:
-                model = joblib.load(model_path)
-                with open(encoders_path, 'rb') as f:
-                    encoders = pickle.load(f)
-            except Exception as e:
-                logger.error(f"Error loading GBDT model or encoders: {str(e)}")
-                return self._collaborative_filtering(user_id, limit)
+            logger.info(f"成功加载{model_name}，开始生成推荐")
 
-            # Extract user features
+            # 提取用户特征
             user_features = self._extract_user_features(user_id)
 
-            # Get all anime
+            # 获取所有动漫
             all_anime = self._get_all_anime()
 
-            # Generate predicted ratings for all anime for this user
+            # 为该用户生成所有动漫的预测评分
             predictions = []
             skipped_count = 0
+            processed_count = 0
 
             for anime in all_anime:
-                # Skip anime the user has already rated
+                # 跳过用户已评分的动漫
                 if self._has_user_rated(user_id, anime.id):
                     continue
 
-                # Build prediction features
+                # 构建预测特征
                 try:
-                    features = self._combine_features(user_features, self._extract_anime_features(anime))
-                    encoded_features = self._encode_features(features, encoders)
-                    prediction = model.predict([encoded_features])[0]
-                    predictions.append((anime.id, prediction))
+                    anime_features = self._extract_anime_features(anime)
+                    features = self._combine_features(user_features, anime_features)
+
+                    # 检查是否需要进行特征编码
+                    if encoders is not None:
+                        encoded_features = self._encode_features(features, encoders)
+                        prediction = model.predict([encoded_features])[0]
+                    else:
+                        # 直接预测（如果编码器不存在）
+                        prediction = model.predict([features])[0]
+
+                    # 归一化到0-1范围
+                    normalized_score = min(max(prediction / 5.0, 0.0), 1.0)
+                    predictions.append((anime.id, normalized_score))
+                    processed_count += 1
                 except Exception as e:
                     skipped_count += 1
-                    # Only log every 100 skipped anime to prevent log spam
+                    # 仅记录少量错误以防止日志垃圾
                     if skipped_count <= 3 or skipped_count % 100 == 0:
-                        logger.debug(f"Error predicting for anime {anime.id}: {str(e)}")
+                        logger.debug(f"动漫 {anime.id} 预测错误: {str(e)}")
                     continue
 
             if skipped_count > 0:
-                logger.warning(f"Skipped {skipped_count} anime due to prediction errors")
+                logger.warning(f"由于预测错误跳过了 {skipped_count} 部动漫")
 
-            # Sort and return top recommendations
+            logger.info(f"成功处理 {processed_count} 部动漫，生成 {len(predictions)} 条推荐")
+
+            # 按得分排序并返回前N个推荐
             predictions.sort(key=lambda x: x[1], reverse=True)
             return predictions[:limit]
 
         except Exception as e:
-            logger.error(f"GBDT recommendation error: {str(e)}")
-            # Fall back to hybrid algorithm on error
-            logger.warning("ML recommendations failed, falling back to hybrid algorithm")
+            logger.error(f"机器学习推荐生成错误: {str(e)}", exc_info=True)
+            # 发生错误时回退到混合算法
+            logger.warning("机器学习推荐失败，回退到混合算法")
             cf_recs = self._collaborative_filtering(user_id, limit)
             cb_recs = self._content_based(user_id, limit)
             return self._hybrid_merge(cf_recs, cb_recs, limit)
@@ -234,18 +295,26 @@ class RecommendationEngine:
             actual_rating: 用户实际评分
         """
         try:
-            # 获取GBDT推荐器
-            from recommendation.engine.models.ml_engine import GBDTRecommender
-            gbdt = GBDTRecommender()
+            # 我们可能需要根据当前加载的模型类型采取不同策略
+            model_dir = Path(__file__).parent / 'models'
 
-            # 加载模型
-            if not gbdt.load_model():
-                logger.warning("无法加载模型，无法更新权重")
-                return
+            # 检查是否有GBDT模型 - 目前只有GBDT支持在线权重更新
+            if (model_dir / 'gbdt_model.joblib').exists():
+                from recommendation.engine.models.ml_engine import GBDTRecommender
+                gbdt = GBDTRecommender()
 
-            # 更新权重
-            gbdt.update_weights_from_feedback(user_id, anime_id, actual_rating)
-            logger.info(f"模型权重已根据用户 {user_id} 对动漫 {anime_id} 的评分 {actual_rating} 进行更新")
+                # 加载模型
+                if gbdt.load_model():
+                    # 更新权重
+                    gbdt.update_weights_from_feedback(user_id, anime_id, actual_rating)
+                    logger.info(f"GBDT模型权重已根据用户 {user_id} 对动漫 {anime_id} 的评分 {actual_rating} 进行更新")
+                else:
+                    logger.warning("无法加载GBDT模型，无法更新权重")
+            else:
+                # 对于其他模型类型，记录反馈但不进行在线更新
+                logger.info(f"记录用户 {user_id} 对动漫 {anime_id} 的评分 {actual_rating} (当前模型不支持在线更新)")
+
+                # 这里可以添加代码来收集反馈数据，用于后续模型重训练
 
         except Exception as e:
             logger.error(f"更新模型权重失败: {str(e)}")

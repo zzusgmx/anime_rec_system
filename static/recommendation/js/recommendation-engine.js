@@ -218,42 +218,43 @@ class QuantumRecommendationEngine {
   /**
    * 获取推荐策略描述
    */
-  getStrategyDescription(strategy) {
-    const descriptions = {
-      'hybrid': {
-        title: '混合推荐',
-        icon: 'fa-magic',
-        description: '量子混合算法结合了多种推荐策略，综合考虑用户偏好和内容相似性，提供最全面的推荐结果。',
-        className: 'icon-hybrid'
-      },
-      'cf': {
-        title: '协同过滤',
-        icon: 'fa-users',
-        description: '协同过滤基于"相似的用户喜欢相似的动漫"原理，通过分析用户行为模式发现隐藏的关联。',
-        className: 'icon-cf'
-      },
-      'content': {
-        title: '基于内容推荐',
-        icon: 'fa-tags',
-        description: '内容推荐基于动漫的特征相似度，分析类型、风格、制作公司等元数据，推荐风格相似的作品。',
-        className: 'icon-content'
-      },
-      'ml': {
-        title: '基于GBDT的机器学习推荐',
-        icon: 'fa-brain',
-        description: '梯度提升决策树(GBDT)是一种强大的机器学习算法，能够从复杂的用户-动漫交互数据中学习深层次模式。',
-        className: 'icon-ml'
-      },
-      'popular': {
-        title: '热门推荐',
-        icon: 'fa-fire',
-        description: '热门推荐基于全网用户的集体智慧，展示当前最受欢迎的动漫作品。',
-        className: 'icon-popular'
-      }
-    };
+  // 在recommendation-engine.js文件中，修改getStrategyDescription方法
+getStrategyDescription(strategy) {
+  const descriptions = {
+    'hybrid': {
+      title: '混合推荐',
+      icon: 'fa-magic',
+      description: '量子混合算法结合了多种推荐策略，综合考虑用户偏好和内容相似性，提供最全面的推荐结果。',
+      className: 'icon-hybrid'
+    },
+    'cf': {
+      title: '协同过滤',
+      icon: 'fa-users',
+      description: '协同过滤基于"相似的用户喜欢相似的动漫"原理，通过分析用户行为模式发现隐藏的关联。',
+      className: 'icon-cf'
+    },
+    'content': {
+      title: '基于内容推荐',
+      icon: 'fa-tags',
+      description: '内容推荐基于动漫的特征相似度，分析类型、风格、制作公司等元数据，推荐风格相似的作品。',
+      className: 'icon-content'
+    },
+    'ml': {
+      title: '机器学习增强推荐',
+      icon: 'fa-brain',
+      description: '使用模型对比选出的最佳模型（包括GBDT/XGBoost/LightGBM/神经网络），从复杂的用户-动漫交互数据中学习深层次模式。',
+      className: 'icon-ml'
+    },
+    'popular': {
+      title: '热门推荐',
+      icon: 'fa-fire',
+      description: '热门推荐基于全网用户的集体智慧，展示当前最受欢迎的动漫作品。',
+      className: 'icon-popular'
+    }
+  };
 
-    return descriptions[strategy] || descriptions['hybrid'];
-  }
+  return descriptions[strategy] || descriptions['hybrid'];
+}
 }
 
 // 创建单例实例

@@ -134,7 +134,7 @@ class RecommendationUI {
       'hybrid': '混合推荐',
       'cf': '协同过滤',
       'content': '基于内容',
-      'ml': '基于GBDT',
+      'ml': '基于机器学习',
       'popular': '热门推荐'
     };
     return names[strategy] || names['hybrid'];
@@ -439,18 +439,19 @@ class RecommendationUI {
    * 更新策略描述
    * @private
    */
-  _updateStrategyDescription(strategy) {
-    const descContainer = document.querySelector('.algo-header');
-    if (!descContainer) return;
+  // 在recommendation-ui.js中找到_updateStrategyDescription方法并修改
+_updateStrategyDescription(strategy) {
+  const descContainer = document.querySelector('.algo-header');
+  if (!descContainer) return;
 
-    const stratDesc = window.recommendationEngine.getStrategyDescription(strategy);
+  const stratDesc = window.recommendationEngine.getStrategyDescription(strategy);
 
-    descContainer.innerHTML = `
-      <i class="fas ${stratDesc.icon} algo-icon ${stratDesc.className}"></i>
-      <h2 class="algo-title">${stratDesc.title}</h2>
-      <p class="algo-description">${stratDesc.description}</p>
-    `;
-  }
+  descContainer.innerHTML = `
+    <i class="fas ${stratDesc.icon} algo-icon ${stratDesc.className}"></i>
+    <h2 class="algo-title">${stratDesc.title}</h2>
+    <p class="algo-description">${stratDesc.description}</p>
+  `;
+}
 
   /**
    * 添加项目动画效果

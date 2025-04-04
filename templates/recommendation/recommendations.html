@@ -213,7 +213,7 @@
             {% if strategy == 'hybrid' %}混合推荐
             {% elif strategy == 'cf' %}协同过滤
             {% elif strategy == 'content' %}基于内容推荐
-            {% elif strategy == 'ml' %}基于GBDT的机器学习推荐
+            {% elif strategy == 'ml' %}机器学习增强推荐
             {% else %}热门推荐{% endif %}
         </h2>
         <p class="algo-description">
@@ -224,7 +224,7 @@
             {% elif strategy == 'content' %}
             内容推荐基于动漫的特征相似度，分析类型、风格、制作公司等元数据，推荐风格相似的作品。
             {% elif strategy == 'ml' %}
-            梯度提升决策树(GBDT)是一种强大的机器学习算法，能够从复杂的用户-动漫交互数据中学习深层次模式。
+            使用模型对比选出的最佳机器学习模型（包括GBDT/XGBoost/LightGBM/神经网络），从复杂的用户-动漫交互数据中学习深层次模式。
             {% else %}
             热门推荐基于全网用户的集体智慧，展示当前最受欢迎的动漫作品。
             {% endif %}

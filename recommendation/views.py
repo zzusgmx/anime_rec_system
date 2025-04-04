@@ -591,7 +591,7 @@ class RecommendationAPIView(APIView):
                     'hybrid': '混合推荐',
                     'cf': '协同过滤',
                     'content': '基于内容',
-                    'ml': '基于GBDT',
+                    'ml': '基于机器学习',
                     'popular': '热门推荐'
                 }.get(strategy, '未知策略')
             })
@@ -1149,7 +1149,7 @@ def get_strategy_list():
         {'code': 'hybrid', 'name': '混合推荐', 'icon': 'fa-magic', 'desc': '结合多种算法的综合推荐'},
         {'code': 'cf', 'name': '协同过滤', 'icon': 'fa-users', 'desc': '基于相似用户喜好的推荐'},
         {'code': 'content', 'name': '基于内容', 'icon': 'fa-tags', 'desc': '根据动漫特征相似度推荐'},
-        {'code': 'ml', 'name': '基于GBDT', 'icon': 'fa-brain', 'desc': '使用梯度提升决策树算法的推荐'},
+        {'code': 'ml', 'name': '基于机器学习', 'icon': 'fa-brain', 'desc': '使用最佳机器学习模型的推荐'},
         {'code': 'popular', 'name': '热门推荐', 'icon': 'fa-fire', 'desc': '当前最热门的动漫'}
     ]
 
